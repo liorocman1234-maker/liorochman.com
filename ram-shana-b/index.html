@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>שנת ההתמקצעות</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&amp;family=Assistant:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<style>
+/* Layout: one column RTL plan; summary (rhythm, quarters) before detail (gantt, weekly listening table). Palette echoes the college's teal/plum/lime. */
+:root{
+  --bg:#F2F5F3; --surface:#FFFFFF; --ink:#15302B; --muted:#5B6E69; --line:#D6E0DC;
+  --teal:#1E7568; --teal-soft:#DCEDE9; --plum:#7B4A86; --plum-soft:#EFE3F2;
+  --lime:#7E9B1F; --lime-soft:#EBF1D6; --gold:#B7791F; --gold-soft:#F6EBD7;
+  --display:"Frank Ruhl Libre","David","Times New Roman",serif;
+  --body:"Assistant","Segoe UI","Arial",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1A18; --surface:#16231F; --ink:#E4EEEA; --muted:#97AAA4; --line:#2A3B36;
+  --teal:#5CC0AE; --teal-soft:#1B3631; --plum:#C89AD4; --plum-soft:#30223A;
+  --lime:#B5D25A; --lime-soft:#28321A; --gold:#E2AE5C; --gold-soft:#36291A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1A18; --surface:#16231F; --ink:#E4EEEA; --muted:#97AAA4; --line:#2A3B36;
+  --teal:#5CC0AE; --teal-soft:#1B3631; --plum:#C89AD4; --plum-soft:#30223A;
+  --lime:#B5D25A; --lime-soft:#28321A; --gold:#E2AE5C; --gold-soft:#36291A; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6;direction:rtl}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:16px;padding-block:32px 64px;display:flex;flex-direction:column;gap:48px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:clamp(2.2rem,6vw,3.4rem);font-weight:900}
+h2{font-size:1.7rem;font-weight:700}
+h3{font-size:1.15rem;font-weight:700}
+p{margin:0}
+.eyebrow{font-size:.8rem;letter-spacing:.06em;color:var(--teal);font-weight:700}
+.lede{color:var(--muted);max-width:62ch;font-size:1.05rem}
+header{display:flex;flex-direction:column;gap:12px}
+.chk:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.sec-head{display:flex;flex-direction:column;gap:6px}
+
+/* rhythm */
+.rhythm{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.slot{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.slot .t{font-weight:700}
+.slot .h{font-variant-numeric:tabular-nums;color:var(--teal);font-weight:700;font-size:.9rem}
+.slot .d{color:var(--muted);font-size:.92rem}
+.slot.new{border-color:var(--teal);background:var(--teal-soft)}
+.budget{display:flex;flex-wrap:wrap;gap:8px 24px;padding:14px 16px;border-inline-start:3px solid var(--teal);background:var(--surface);border-radius:4px}
+.budget b{font-variant-numeric:tabular-nums}
+
+/* legend chips */
+.legend{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;padding:2px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line)}
+.dot{width:9px;height:9px;border-radius:50%}
+
+/* quarters */
+.quarters{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:16px}
+.q{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.q-top{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap}
+.q-when{color:var(--muted);font-size:.9rem;font-variant-numeric:tabular-nums}
+.goal{font-family:var(--display);font-size:1.15rem;font-weight:700;color:var(--teal)}
+.streams{display:flex;flex-direction:column;gap:10px}
+.stream{display:grid;grid-template-columns:7.5rem 1fr;gap:10px;align-items:start}
+.stream .lbl{font-size:.82rem;font-weight:700;padding:2px 8px;border-radius:6px;text-align:center}
+.stream ul{margin:0;padding-inline-start:18px;display:flex;flex-direction:column;gap:2px;font-size:.95rem}
+@media (max-width:480px){.stream{grid-template-columns:1fr}.stream .lbl{justify-self:start}}
+.c-self{background:var(--teal-soft);color:var(--teal)}
+.c-learn{background:var(--lime-soft);color:var(--lime)}
+.c-rev{background:var(--gold-soft);color:var(--gold)}
+.c-prac{background:var(--plum-soft);color:var(--plum)}
+.c-mkt{background:var(--surface);color:var(--ink);border:1px dashed var(--muted)}
+
+/* gantt */
+.gantt-box{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+.gantt{min-width:820px;display:grid;grid-template-columns:150px 1fr;row-gap:8px}
+.g-label{font-size:.88rem;font-weight:700;align-self:center}
+.g-track{position:relative;height:28px;background:repeating-linear-gradient(to left,transparent 0,transparent calc(10% - 1px),var(--line) calc(10% - 1px),var(--line) 10%)}
+.g-months{position:relative;height:22px}
+.g-months span{position:absolute;width:10%;text-align:center;font-size:.8rem;color:var(--muted)}
+.g-bar{position:absolute;top:4px;height:20px;border-radius:5px;font-size:.74rem;line-height:20px;padding-inline:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g-ms{position:absolute;top:0;height:28px;width:0;border-inline-start:2px solid var(--ink)}
+.g-ms i{position:absolute;top:-2px;inset-inline-start:-6px;width:10px;height:10px;background:var(--ink);transform:rotate(45deg)}
+.g-ms b{position:absolute;top:12px;inset-inline-start:4px;font-size:.72rem;white-space:nowrap;font-weight:700;background:var(--surface);padding-inline:2px}
+.g-today{position:absolute;top:-4px;bottom:-4px;border-inline-start:2px dashed var(--gold)}
+
+/* weekly table */
+.tbl-box{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:.92rem}
+th,td{text-align:start;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.8rem;letter-spacing:.04em;color:var(--muted);background:var(--bg);position:sticky;top:0}
+td.wk{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700}
+td.y2{color:var(--muted);max-width:220px}
+.lesson{display:flex;gap:8px;align-items:flex-start}
+.chk{appearance:none;flex:none;width:18px;height:18px;margin-top:3px;border:2px solid var(--teal);border-radius:4px;cursor:pointer;background:var(--surface)}
+.chk:checked{background:var(--teal)}
+.chk:checked + span{color:var(--muted);text-decoration:line-through}
+tr.now td{background:var(--teal-soft)}
+tr.now td.wk::after{content:" ← השבוע";color:var(--teal)}
+tr.phase td{background:var(--bg);font-family:var(--display);font-weight:700;font-size:1rem;color:var(--teal)}
+.note{color:var(--muted);font-size:.9rem;max-width:70ch}
+.progress{font-variant-numeric:tabular-nums;font-weight:700;color:var(--teal)}
+.habit{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:10px}
+.habit ul{margin:0;padding-inline-start:18px;display:flex;flex-direction:column;gap:8px;max-width:75ch}
+footer{color:var(--muted);font-size:.85rem;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<span class="eyebrow">רא״מ · מחזור 5 · שנה ב׳ · אוקטובר 2026 עד יולי 2027</span>
+<h1>שנת ההתמקצעות</h1>
+<p class="lede">השנה האחרונה בלימודים, מתוכננת כך שכל שיעור ביום רביעי הופך לתרגול על עצמי, לחזרה ולעבודה עם אנשים. חמישה מסלולים, ארבעה רבעונים ומטרה אחת לכל רבעון.</p>
+<div class="legend">
+<span class="chip"><span class="dot" style="background:var(--teal)"></span>ניסוי עצמי בשיטה</span>
+<span class="chip"><span class="dot" style="background:var(--lime)"></span>למידה והעמקה</span>
+<span class="chip"><span class="dot" style="background:var(--gold)"></span>חזרה על חומר</span>
+<span class="chip"><span class="dot" style="background:var(--plum)"></span>תרגול מעשי</span>
+<span class="chip"><span class="dot" style="border:1px dashed var(--muted)"></span>נישה ומיתוג</span>
+</div>
+</header>
+<section class="sec-head" style="gap:16px">
+<div class="sec-head">
+<h2>השבוע הקבוע</h2>
+<p class="lede">השלד שחוזר כל שבוע. רוב הזמן כבר קיים בלו״ז, ומה שמסומן בירוק הוא תוספת.</p>
+</div>
+<div class="rhythm">
+<div class="slot"><span class="h">רביעי</span><span class="t">שיעור במכללה</span><span class="d">הנושא של השבוע קובע מה מתרגלים על עצמי ובמה חוזרים.</span></div>
+<div class="slot"><span class="h">4 × 90 דק׳</span><span class="t">האזנה לשיעורים מוקלטים</span><span class="d">שני שיעורים משנה א׳ לפי הטבלה למטה, הקלטה של השיעור מרביעי, ומשבצת גמישה.</span></div>
+<div class="slot new"><span class="h">כל יום · 10 דק׳</span><span class="t">עפעוף עצמי וכיול</span><span class="d">צמוד לנוהל הבוקר. איך עושים את זה הרגל, מפורט למטה.</span></div>
+<div class="slot new"><span class="h">פעם בשבועיים · 90 דק׳</span><span class="t">בלוק תרגול על אדם</span><span class="d">מנובמבר: חבר, בן משפחה או חבר לכיתה. מאפריל הסטאז' תופס את המקום הזה.</span></div>
+</div>
+<div class="budget">
+<span>זמן קיים: <b>6 שעות</b> האזנה + יום רביעי</span>
+<span>תוספת: <b>כ־2 שעות בשבוע</b></span>
+<span class="note">אם השבוע עמוס, מוותרים על כל השאר ושומרים את 10 הדקות היומיות. הן מה שמחזיק את הרצף.</span>
+</div>
+<div class="habit">
+<h3>איך 10 דקות העפעוף נעשות הרגל</h3>
+<ul>
+<li><b>מצמידים לעוגן קבוע.</b> בוחרים פעולה אחת שקורית כל בוקר בלי מחשבה, כמו הקפה, התפילה או המקלחת, וקובעים: "אחרי ש־___, אני מתיישב ומעפעף". תמיד אותו עוגן, אותו כיסא, אותה שעה.</li>
+<li><b>תסריט קבוע, בלי החלטות.</b> 2 דק׳ כיול. 5 דק׳ בדיקה של דבר אחד להיום: מה לאכול, תוסף או החלטה. 3 דק׳ לתרגיל אנרגטי קבוע שבחרת.</li>
+<li><b>גרסת מינימום ליום עמוס.</b> כיול ושאלה אחת, דקה אחת. העיקר לא לשבור את הרצף, ולא שהתרגול יהיה מושלם.</li>
+<li><b>סימון אחד ביום.</b> ✓ ברשימה היומית שאתה כבר ממלא. אחרי 3 שבועות זה כבר רץ לבד.</li>
+</ul>
+</div>
+</section>
+<section style="display:flex;flex-direction:column;gap:16px">
+<div class="sec-head">
+<h2>ארבעה רבעונים</h2>
+<p class="lede">לכל רבעון מטרה אחת. כל השאר משרת אותה.</p>
+</div>
+<div class="quarters">
+<article class="q">
+<div class="q-top"><h3>רבעון 1 · הבסיס</h3><span class="q-when">אוקטובר עד דצמבר</span></div>
+<p class="goal">עד סוף דצמבר יש לי שני כלים שעובדים בידיים: עפעוף יומי שהפך להרגל ותוכנית תזונה שאני מריץ על עצמי</p>
+<div class="streams">
+<div class="stream"><span class="lbl c-self">ניסוי עצמי</span><ul><li>בניית תוכנית תזונה לאחר ההסמכה לפחות ל־5 אנשים שונים ולעצמי, ולנסות אותה</li></ul></div>
+<div class="stream"><span class="lbl c-learn">למידה</span><ul><li>סרטן, תזונה, התמכרויות, טיפול בחומרים</li></ul></div>
+<div class="stream"><span class="lbl c-rev">חזרה משנה א׳</span><ul><li>מבואות: אנטומיה, פיזיולוגיה, פסיכוסומטיקה ופתולוגיה</li><li>שבעת החוקים האוניברסליים ועפעוף</li><li>קורס החיוניות: תזונה, חיוניות, חוקן קפה</li><li>מערכת העיכול, כל 6 השיעורים</li><li>הקוד האנושי, שיעורים 1 ו־2</li><li>שעון המרידיאנים בכרטיסיות</li></ul></div>
+<div class="stream"><span class="lbl c-prac">תרגול</span><ul><li>אבחון פסיכוסומטי מהיר על אדם אחד, פעם בשבועיים</li><li>משחק מקרים עם הסוכן ב־NotebookLM, פעם בשבוע</li></ul></div>
+</div>
+</article>
+<article class="q">
+<div class="q-top"><h3>רבעון 2 · הזהות כמטפל</h3><span class="q-when">ינואר עד מרץ</span></div>
+<p class="goal">ב־31.3 נכנס לסטאז' אחרי 3 טיפולי FEEL &amp; TTRT מלאים על מתנדבים, עם יומן מקרים פתוח</p>
+<div class="streams">
+<div class="stream"><span class="lbl c-self">ניסוי עצמי</span><ul><li>FEEL &amp; TTRT על 3 מתנדבים, מטופל אחד בכל חודש</li><li>שטיפה אנרגטית עצמית פעם בשבוע</li><li>תרגולי חיוניות ומיניות מהשיעורים של היבה</li></ul></div>
+<div class="stream"><span class="lbl c-learn">למידה</span><ul><li>יחסי מטפל ומטופל, שיח טיפולי, מיניות, טיפול בילדים</li><li>התגשמות עסקית עם יהונתן (מרץ)</li></ul></div>
+<div class="stream"><span class="lbl c-rev">חזרה משנה א׳</span><ul><li>שבעת החוקים, סיום (שיעורים 3 עד 5)</li><li>התפתחות אישית ושבע דרגות הנשמה</li><li>FEEL &amp; TTRT: כל 5 השיעורים והתרגול, והפרוטוקול בעל פה</li><li>מערכת הרבייה ומערכת השתן</li><li>הקוד האנושי: שיעורים 3 ו־4 והתרגול</li><li>הדגמת הטיפול של נאדר מסוף שנה א׳, לפני הסטאז'</li></ul></div>
+<div class="stream"><span class="lbl c-prac">תרגול</span><ul><li>יומן מקרים: כל אחד מ־3 המתנדבים מתועד</li><li>תוכניות התזונה רצות אצל 5 האנשים</li></ul></div>
+<div class="stream"><span class="lbl c-mkt">נישה ומיתוג</span><ul><li>מאמצע מרץ, יחד עם השיעורים של יהונתן: חשיבה על כיוון, נישה ואיך זה משתלב עם מה שקיים</li></ul></div>
+</div>
+</article>
+<article class="q">
+<div class="q-top"><h3>רבעון 3 · הקליניקה</h3><span class="q-when">אפריל עד יוני</span></div>
+<p class="goal">מטופלים אמיתיים, ומכל מקרה לומדים משהו</p>
+<div class="streams">
+<div class="stream"><span class="lbl c-learn">למידה</span><ul><li>סופרויז'ן כללי, סופרויז'ן תזונה וסופרויז'ן ילדים</li><li>תהליך פרידה עם רועי (יוני)</li></ul></div>
+<div class="stream"><span class="lbl c-rev">חזרה משנה א׳</span><ul><li>המערכת האנדוקרינית ומרכזי האנרגיה</li><li>מערכת התנועה, מערכת הנשימה והעור</li><li>רפואת שיניים והמערכת הקרדיווסקולרית</li><li>עולם הרוח, כל 5 השיעורים ושיעור ההעשרה</li><li>ובנוסף: כל מקרה בסטאז' שולח אותי לשיעור של המערכת שלו</li></ul></div>
+<div class="stream"><span class="lbl c-prac">תרגול</span><ul><li>סטאז' ויומן מקרים, ועל כל מקרה שאלה אחת לסופרויז'ן</li><li>מספר המפגשים לפי דרישת המכללה</li></ul></div>
+<div class="stream"><span class="lbl c-mkt">נישה ומיתוג</span><ul><li>בוחר נישה ושם, ומחליט איך זה משתלב עם המותג הקיים</li></ul></div>
+</div>
+</article>
+<article class="q">
+<div class="q-top"><h3>רבעון 4 · ההשקה</h3><span class="q-when">יולי</span></div>
+<p class="goal">מסיים כמטפל מוסמך (28.7) ויוצא לדרך</p>
+<div class="streams">
+<div class="stream"><span class="lbl c-rev">חזרה משנה א׳</span><ul><li>מערכת העצבים ומערכת החיסון</li><li>תרגול החזרה לבחינה עם קארן</li><li>השיעור משנה א׳ שהכי חסר לי</li></ul></div>
+<div class="stream"><span class="lbl c-prac">תרגול</span><ul><li>מקרה אחד מלא, מתועד מההתחלה ועד הסוף</li></ul></div>
+<div class="stream"><span class="lbl c-mkt">נישה ומיתוג</span><ul><li>מוכן להשקה מיד אחרי חלוקת התעודות</li></ul></div>
+</div>
+</article>
+</div>
+</section>
+<section style="display:flex;flex-direction:column;gap:16px">
+<div class="sec-head">
+<h2>גאנט</h2>
+<p class="lede">כל השנה במבט אחד. הקו המקווקו הוא היום.</p>
+</div>
+<div class="gantt-box"><div class="gantt" id="gantt"></div></div>
+</section>
+<section style="display:flex;flex-direction:column;gap:16px">
+<div class="sec-head">
+<h2>מה שומעים השבוע</h2>
+<p class="lede">כל שבוע: שני שיעורים משנה א׳ שמתאימים למה שלומדים באותו חודש. שתי ההאזנות האחרות הן ההקלטה של השיעור מרביעי ומשבצת גמישה. כל 77 השיעורים המוקלטים של שנה א׳ נכנסו.</p>
+<p class="progress" id="prog"></p>
+</div>
+<div class="tbl-box">
+<table>
+<thead><tr><th>שבוע</th><th>ברביעי לומדים</th><th>האזנה 1</th><th>האזנה 2</th></tr></thead>
+<tbody id="weeks"></tbody>
+</table>
+</div>
+<p class="note">השמות כמו שהם מופיעים בתיקיית ההקלטות ובמחברת של שנה א׳ ב־NotebookLM. מסמנים ✓ והסימון נשמר בדפדפן שלך.</p>
+</section>
+<footer>מבוסס על מערכת השעות של מחזור 5, שנה ב׳, ועל המחברת של שנה א׳ ב־NotebookLM. תאריכים עשויים להשתנות לפי עדכוני המכללה.</footer>
+</div>
+<script>
+(function(){
+  // gantt: Oct 1 2026 to Aug 1 2027, 10 month columns, RTL
+  const T0=new Date(2026,9,1), T1=new Date(2027,7,1);
+  const pos=d=>Math.max(0,Math.min(100,(d-T0)/(T1-T0)*100));
+  const D=(m,d)=>new Date(m>=9?2026:2027,m,d); // m: 0-11
+  const months=['אוק׳','נוב׳','דצמ׳','ינו׳','פבר׳','מרץ','אפר׳','מאי','יוני','יולי'];
+  const C={self:'c-self',learn:'c-learn',rev:'c-rev',prac:'c-prac',mkt:'c-mkt'};
+  const rows=[
+    {l:'שיעורי רביעי',c:'learn',bars:[[D(9,7),D(10,1),'סרטן · פסיכוסומטיקה'],[D(10,1),D(11,22),'תזונה · התמכרויות'],[D(11,14),D(1,1),'מטפל־מטופל · שטיפה'],[D(1,1),D(2,8),'מיניות · ילדים'],[D(2,15),D(3,10),'התגשמות עסקית']]},
+    {l:'ניסוי עצמי',c:'self',bars:[[D(10,1),D(0,31),'תוכנית תזונה: אני + 5'],[D(0,1),D(2,31),'FEEL על 3 מתנדבים']]},
+    {l:'חזרה משנה א׳',c:'rev',bars:[[D(9,19),D(11,31),'מבואות · חוקים · חיוניות · עיכול'],[D(0,1),D(2,31),'FEEL · רבייה · שתן · הקוד'],[D(3,1),D(5,30),'אנדוקרינית · תנועה · נשימה · לב · רוח'],[D(6,1),D(6,25),'סיום']]},
+    {l:'תרגול מעשי',c:'prac',bars:[[D(10,1),D(11,31),'אבחון בשבועיים'],[D(0,1),D(2,31),'יומן מקרים · תזונה ל־5'],[D(2,31),D(6,14),'סטאז׳ + סופרויז׳ן']]},
+    {l:'נישה ומיתוג',c:'mkt',bars:[[D(2,15),D(4,31),'חשיבה: כיוון ונישה'],[D(5,1),D(6,31),'החלטה והכנה']]}
+  ];
+  const ms=[[D(11,23),'מבחן תזונה'],[D(1,21),'זום גברים'],[D(2,31),'התנעת סטאז׳'],[D(6,28),'תעודות']];
+  const g=document.getElementById('gantt'); let h='';
+  h+='<div></div><div class="g-months">'+months.map((m,i)=>`<span style="right:${i*10}%">${m}</span>`).join('')+'</div>';
+  const today=new Date(); const tp=pos(today); const showToday=today>=T0&&today<=T1;
+  rows.forEach(r=>{
+    h+=`<div class="g-label">${r.l}</div><div class="g-track">`;
+    r.bars.forEach(b=>{const s=pos(b[0]),e=pos(b[1]);h+=`<div class="g-bar ${C[r.c]}" style="right:${s}%;width:${Math.max(e-s,2)}%" title="${b[2]}">${b[2]}</div>`});
+    if(showToday) h+=`<div class="g-today" style="right:${tp}%"></div>`;
+    h+='</div>';
+  });
+  h+='<div class="g-label">אבני דרך</div><div class="g-track" style="height:40px">'+ms.map(m=>`<div class="g-ms" style="right:${pos(m[0])}%"><i></i><b>${m[1]}</b></div>`).join('')+'</div>';
+  g.innerHTML=h;
+
+  // weekly listening plan: week starts Monday; wed = lesson date
+  const W=[
+    ['phase','רבעון 1 · הבסיס'],
+    ['19.10','סרטן · פסיכוסומטיקה חזרה','פסיכוסומטיקה | מבוא פסיכוסומטיקה + עפעוף | 19.11.2025','פסיכוסומטיקה | מבוא פתולוגיה 1 | עדי מוסקונה'],
+    ['26.10','סרטן · תרגול הקוד האנושי','הקוד האנושי | שיעור 1 | 14.1.2026 | נאדר','הקוד האנושי | שיעור 2 | 21.1.2026 | נאדר'],
+    ['2.11','עפעוף · תזונה · שולחן עגול','שבעת החוקים | שיעור 1 | חוקים 1-3 + עפעוף','פסיכוסומטיקה | מבוא פיזיולוגיה + עפעוף | 12.11.2025'],
+    ['9.11','תזונה · אבחון טיפולי','קורס חיוניות | תזונה | עידית קויפמן','קורס חיוניות | חיוניות | קארן'],
+    ['16.11','תזונה · התפתחות אישית','קורס חיוניות | חוקן קפה | קארן','קורס חיוניות | חיוניות עם קארן | שאלות ותשובות'],
+    ['23.11','התמכרויות · תזונה תרגול','פסיכוסומטיקה | מבוא פתולוגיה 2 | עדי מוסקונה','מערכת העיכול 1 | אנטומיה פיזיולוגיה | נאדר'],
+    ['30.11','התמכרויות · תזונה תרגול · שולחן עגול','מערכת העיכול 2 | פסיכוסומטיקה | קארן','מערכת העיכול 3 | פסיכוסומטיקה | קארן'],
+    ['7.12','התמכרויות (רועי) · תזונה תרגול','מערכת העיכול 4 | פסיכוסומטיקה | קארן','מערכת העיכול 5 | פתולוגיה | נאדר'],
+    ['14.12','טיפול בחומרים · שטיפה אנרגטית','מערכת העיכול 6 | פתולוגיה | נאדר','התפתחות אישית | שיח עם קארן אחרי המבחן + שטיפה עצמית'],
+    ['21.12','מבחן בתזונה · יחסי מטפל־מטופל','אנטומיה ופיזיולוגיה | מערכת העיכול','שבעת החוקים | שיעור 2 | חוקים 4-5'],
+    ['28.12','יחסי מטפל־מטופל · שטיפה אנרגטית','שבעת החוקים | שיעור 3 | חוקים 6-7','שבעת החוקים | שיעור 4 | קארן'],
+    ['phase','רבעון 2 · הזהות כמטפל'],
+    ['4.1','מטפל־מטופל · שטיפה מעשי · שולחן עגול','שבעת החוקים | שיעור 5 | קארן','התפתחות אישית | 7 דרגות הנשמה | 17.12.2025'],
+    ['11.1','מטפל־מטופל · שטיפה מעשי (קארן)','התפתחות אישית | 21.1.2026 | נאדר','התפתחות אישית | כלים טיפוליים | קארן'],
+    ['18.1','מטפל־מטופל · שטיפה מעשי (טלי)','FEEL & TTRT | שיעור 1 | נאדר','FEEL & TTRT | שיעור 2 | נאדר'],
+    ['25.1','מטפל־מטופל · שיח טיפולי','FEEL & TTRT | שיעור 3 | נאדר','FEEL & TTRT | שיעור 4 | נאדר'],
+    ['1.2','שיח טיפולי · שטיפה מעשי · שולחן עגול','FEEL & TTRT | שיעור 5 | קארן','FEEL & TTRT | תרגול | אבי שתיוי'],
+    ['8.2','מבוא מיניות · מבוא טיפול בילדים','קורס חיוניות | מיניות כמפתח לחיוניות | היבא','מערכת הרבייה | שיעור 1 | נאדר'],
+    ['15.2','מיניות · ילדים · זום גברים א׳ 21.2','מערכת הרבייה | שיעור 2 | קארן','מערכת הרבייה | שיעור 3 | פתולוגיה'],
+    ['22.2','מיניות · ילדים','אנטומיה ופיזיולוגיה | מערכת הרבייה','מערכת השתן 1 | נאדר'],
+    ['1.3','מיניות · ילדים · שולחן עגול','מערכת השתן 2 | קארן','מערכת השתן 3 | קארן'],
+    ['8.3','חופש (עיד אל פיטר)','מערכת השתן 3 | עודד קסלר','אנטומיה ופיזיולוגיה | מערכת ההפרשה'],
+    ['15.3','התגשמות עסקית · שיח טיפולי (עדי)','הקוד האנושי | שיעור 3 | קארן','הקוד האנושי | שיעור 4 | נאדר'],
+    ['22.3','התגשמות עסקית · שיח טיפולי (נגבה)','הקוד האנושי | תרגול | קארן','פסיכוסומטיקה | תרגול | 11.3.2026 | קארן + נאדר'],
+    ['29.3','התגשמות עסקית · התנעת סטאז׳','התפתחות אישית | סוף שנה א׳ הדגמת טיפול | נאדר','התפתחות אישית | בריאת מציאות | קארן'],
+    ['phase','רבעון 3 · הקליניקה'],
+    ['5.4','התפתחות אישית · שיח טיפולי · שולחן עגול','המערכת האנדוקרינית | שיעור 1 | נאדר','המערכת האנדוקרינית 2 | קארן'],
+    ['12.4','סופרויז׳ן · סופרויז׳ן תזונה · יהונתן','המערכת האנדוקרינית | שיעור 3 חלק 1 | קארן','המערכת האנדוקרינית | שיעור 3 חלק 2 | קארן'],
+    ['19.4','פסח','המערכת האנדוקרינית | שיעור 4 | פתולוגיה','המערכת האנדוקרינית | שיעור 5 | פתולוגיה'],
+    ['26.4','פסח','אנטומיה ופיזיולוגיה | המערכת האנדוקרינית','פסיכוסומטיקה | מערכת התנועה | נאדר'],
+    ['3.5','סופרויז׳ן · תזונה · יהונתן','אנטומיה ופיזיולוגיה | מערכת התנועה','פסיכוסומטיקה | מבוא אנטומיה | 5.11.2025'],
+    ['10.5','חופש (יום העצמאות)','אנטומיה ופיזיולוגיה | מערכת הנשימה','מערכת הנשימה והעור | פסיכוסומטיקה | קארן'],
+    ['17.5','חופש (עיד אל אדחא)','מערכת הנשימה והעור | פתולוגיה | נאדר','פסיכוסומטיקה | רפואת שיניים | נעה סבג'],
+    ['24.5','סופרויז׳ן · סופרויז׳ן תזונה','המערכת הקרדיווסקולרית | אנטומיה פיזיולוגיה','המערכת הקרדיווסקולרית | פסיכוסומטיקה | קארן'],
+    ['31.5','סופרויז׳ן · סופרויז׳ן תזונה','המערכת הקרדיווסקולרית | פתולוגיה | נאדר','אנטומיה ופיזיולוגיה | מערכת הזרימה הלב והדם'],
+    ['7.6','תהליך פרידה · סופרויז׳ן ילדים','עולם הרוח | שיעור 1 | נאדר','עולם הרוח | שיעור 2 | נאדר'],
+    ['14.6','סופרויז׳ן · שיח טיפולי (קארן)','עולם הרוח | שיעור 3 | נאדר','עולם הרוח | שיעור 4 | נאדר'],
+    ['21.6','סופרויז׳ן','עולם הרוח | שיעור 5 | נאדר','עולם הרוח | שיעור העשרה | מייקל גנטוס'],
+    ['28.6','תרגול חופשי · נאדר הפתעה','אנטומיה ופיזיולוגיה | מערכת העצבים','אנטומיה ופיזיולוגיה | מערכת החיסון'],
+    ['phase','רבעון 4 · ההשקה'],
+    ['5.7','סופרויז׳ן','אנטומיה ופיזיולוגיה | מבוא לאנטומיה','אנטומיה ופיזיולוגיה | מבוא לפיזיולוגיה'],
+    ['12.7','מפגש סיכום · מרכז','פסיכוסומטיקה | תרגול חזרה לבחינה | קארן','השיעור משנה א׳ שהכי חסר לי'],
+    ['19.7','-','חזרה חופשית','חזרה חופשית'],
+    ['26.7','חלוקת תעודות','-','-']
+  ];
+  let saved={}; try{saved=JSON.parse(localStorage.getItem('ramB-gym')||'{}')}catch(e){}
+  const tb=document.getElementById('weeks'); let rowsH='', idx=0;
+  const toDate=s=>{const [d,m]=s.split('.').map(Number);return new Date(m>=9?2026:2027,m-1,d)};
+  W.forEach(w=>{
+    if(w[0]==='phase'){rowsH+=`<tr class="phase"><td colspan="4">${w[1]}</td></tr>`;return}
+    const st=toDate(w[0]), en=new Date(st.getTime()+7*864e5), now=today>=st&&today<en;
+    const cell=(t,k)=>{if(t==='-')return '<td>-</td>';const id='l'+k;return `<td><label class="lesson"><input type="checkbox" class="chk" id="${id}" data-k="${id}"${saved[id]?' checked':''}><span>${t}</span></label></td>`};
+    rowsH+=`<tr${now?' class="now"':''}><td class="wk">${w[0]}</td><td class="y2">${w[1]}</td>${cell(w[2],idx+'a')}${cell(w[3],idx+'b')}</tr>`; idx++;
+  });
+  tb.innerHTML=rowsH;
+  const prog=document.getElementById('prog');
+  function upd(){const all=[...tb.querySelectorAll('.chk')];prog.textContent=`${all.filter(c=>c.checked).length} מתוך ${all.length} האזנות`}
+  tb.addEventListener('change',e=>{if(!e.target.dataset.k)return;saved[e.target.dataset.k]=e.target.checked;try{localStorage.setItem('ramB-gym',JSON.stringify(saved))}catch(err){}upd()});
+  upd();
+})();
+</script>
+</body>
+</html>
