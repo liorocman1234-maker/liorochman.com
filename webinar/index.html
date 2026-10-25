@@ -311,6 +311,8 @@ fbq('track','PageView');
       <input type="hidden" name="utm_source"><input type="hidden" name="utm_medium"><input type="hidden" name="utm_campaign">
       <input type="hidden" name="utm_content"><input type="hidden" name="utm_term">
       <input type="hidden" name="page"><input type="hidden" name="consent_ts">
+      <!-- מקור המודעה לגיליון הנרשמות (שדה ad_source ב-MailerLite) -->
+      <input type="hidden" name="fields[ad_source]">
       <!--
   Webinar-OS · תיבת הסכמה אחת (מוזרקת אוטומטית לטופס ההרשמה, לפני כפתור השליחה)
   תיבה אחת משולבת: מדיניות פרטיות + תנאי שימוש + הסכמה לקבלת עדכונים. חובה לסימון, לא מסומנת מראש.
@@ -449,6 +451,8 @@ var CONFIG = {
   if(fresh){ try{localStorage.setItem("wos_attr",JSON.stringify(store))}catch(e){} }
   KEYS.forEach(function(k){ var el=document.querySelector('input[name="'+k+'"]'); if(el&&store[k]) el.value=store[k]; });
   var pg=document.querySelector('input[name="page"]'); if(pg) pg.value=location.pathname;
+  var src=document.querySelector('input[name="fields[ad_source]"]');
+  if(src) src.value=["utm_source","utm_content","utm_term"].map(function(k){return store[k]}).filter(Boolean).join(" · ");
 })();
 
 /* ===== כותרת לפי המודעה (utm_content, נשמר גם בביקור חוזר) ===== */
