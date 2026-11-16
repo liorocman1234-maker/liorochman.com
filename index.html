@@ -175,6 +175,14 @@ a:hover .arrow,a:focus-visible .arrow{transform:translateX(-5px)}
     .reviews{grid-template-columns:repeat(3,1fr)}
 }
 
+.more-link{display:inline-flex;align-items:center;gap:10px;margin-top:26px;font-weight:700;font-size:18px;color:var(--ink);text-decoration:underline;text-decoration-color:var(--light);text-decoration-thickness:3px;text-underline-offset:6px}
+.more{background:var(--mist)}
+.reviews-wall{columns:1;column-gap:16px}
+.reviews-wall .review{break-inside:avoid;margin:0 0 16px}
+.review-initial{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:var(--light);font-family:var(--display);font-weight:900;font-size:20px;flex:none}
+@media (min-width:760px){.reviews-wall{columns:3}}
+@media (min-width:560px) and (max-width:759px){.reviews-wall{columns:2}}
+
 /* closing band */
 .closing{background:var(--ink);color:#fff;text-align:center;border-bottom:1px solid rgba(255,255,255,.14)}
 .closing .section-title{margin-inline:auto;max-width:20ch}
@@ -308,6 +316,7 @@ fbq('track','PageView');
                     <p>ליאור היה לא רק מאמן הוא היה שם כאדם בגובה העיניים ותמך לאורך כל הדרך- לקח אותי לרמה ולמחויבות שלא הכרתי בעצמי, נתן לי <strong>אומץ ובטחון</strong> לפעול ולעשות מתוך אמון מלא ביכולת שלי.</p>
                 </figure>
             </div>
+            <a class="more-link" href="#more-reviews">לעוד 18 ביקורות <span class="arrow" aria-hidden="true">←</span></a>
         </div>
     </section>
 
@@ -321,6 +330,89 @@ fbq('track','PageView');
                 <p>שירתי חמש שנים כקצין בהנדסה קרבית, ובתפקיד האחרון הייתי מ"פ. ידעתי להוביל אנשים ולעמוד ביעדים. בזוגיות זה נראה אחרת לגמרי.</p>
                 <p>עברתי בעצמי מערכות יחסים רעילות, והיו רגעים שכמעט איבדתי תקווה. השינוי התחיל כשהבנתי את דפוסי ההתנהגות שלי, ואת האמונות שמנהלות אותם.</p>
                 <p>היום אני נשוי ללהב, ומלווה אנשים באותה דרך: עבודת עומק יחד עם פעולה בשטח, מהיום הראשון. הוכשרתי כמאמן מנטלי אצל איתן עזריה, ועד היום ליוויתי 62 מתאמנים.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section more" id="more-reviews" aria-labelledby="more-title">
+        <div class="wrap">
+            <div class="section-head">
+                <h2 class="section-title" id="more-title">עוד מתאמנות <mark>ומתאמנים</mark></h2>
+                <p class="section-sub">18 ביקורות נוספות, במילים שלהם.</p>
+            </div>
+            <div class="reviews-wall">
+                <figure class="review">
+                    <div class="review-head"><img src="https://group.liorochman.com/assets/Pm1889yP.jpeg" alt="חני טוויל" loading="lazy" decoding="async"><div><div class="review-name">חני טוויל</div><div class="review-meta">36, מורה</div></div></div>
+                    <p>ליאור היקר, היית בשבילי מנטור אמיתי – בדיוק במינון שצריך: כדי להטמיע, להרים, לדייק, לאתגר, ולפעמים גם פשוט – להיות שם. בתהליך עשיתי קפיצה שלא האמנתי שאפשרית. אני מסתכלת על עצמי היום – ורואה וואו. רמה אחרת. עם ביטחון, הבנה עמוקה של הדברים, ויכולת להמשיך להתקדם בעצמי. <strong>עברתי מהפך תודעתי</strong>- שינוי מקצה לקצה. אני תופסת את עצמי אחרת, ופועלת מתוך הפרדיגמה החדשה – וזה מדהים אותי כל פעם מחדש.</p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><span class="review-initial" aria-hidden="true">א</span><div><div class="review-name">אדם אהרון</div><div class="review-meta">30, מדריך כושר</div></div></div>
+                    <p>בתהליך הצלחתי לראשונה לגלות למה אני באמת לא מצליח להיכנס לזוגיות, דברים שבכלל לא הייתי מודע אליהם- פחדים, דפוסים ובחירות שעשיתי בלי לשים לב. במפגש החמישי הצלחתי אחרי ארבע שנים להרגיש סוףסוף מי שאני בדייט, התנהלתי ממקום נכון ולא מתוך לחץ וריצוי, <strong>והיום אני בהתחלה של זוגיות</strong>. העבודה עם ליאור הייתה מדויקת, תכלסית, אמיתית- ובעיקר הובילה אותי לתוצאה שרציתי.</p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><img src="https://group.liorochman.com/assets/NST7783IxU.png" alt="יובל פאר" loading="lazy" decoding="async"><div><div class="review-name">יובל פאר</div><div class="review-meta">25, מתכנת</div></div></div>
+                    <p>עברתי מספר אימונים מנטליים, ודבר כזה עוד לא חוויתי- היכולת של ליאור לרדת לרבדים העמוקים שינתה לי את החיים, <strong>הצלחתי למצוא את הזוגיות</strong> שתמיד רציתי.</p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><img src="https://group.liorochman.com/assets/dEj1851dFI.png" alt="בר אמסלם" loading="lazy" decoding="async"><div><div class="review-name">בר אמסלם</div><div class="review-meta">31, יועץ עסקי</div></div></div>
+                    <p>מעבר לזה שליאור מאמן על ובחור מדהים, הוא באמת נתן לי הרבה יותר ממה שהבטיח, הוא נתן את הלב והנשמה לאורך כל התהליך, ומעבר לכך הוא עזר לי לפצח <strong>אמונה מגבילה</strong> שסחבתי איתי שנים, החיים שלי לא אותו דבר מאז התהליך</p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><img src="https://group.liorochman.com/assets/eCT2015AY.png" alt="נתיב הוד" loading="lazy" decoding="async"><div><div class="review-name">נתיב הוד</div><div class="review-meta">22, סוכן מכירות</div></div></div>
+                    <p>הגעתי לליאור מאוד מבולבל, לא ידעתי מאיפה להתחיל, הייתי ביקורתי כלפי עצמי ברמה שלא אפשרה לי לצאת לדרך. ליאור הציל אותי לגמרי בכל התחומים, שברנו ביחד המון <strong>דפוסי התנהגות</strong> שהיו לי והרסו לי את ההתנהלות בקשרים הזוגיים</p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><img src="https://group.liorochman.com/assets/VPi8197abA.jpeg" alt="אמיתי איתואל" loading="lazy" decoding="async"><div><div class="review-name">אמיתי איתואל</div><div class="review-meta">25, סטודנט</div></div></div>
+                    <p>הליווי האישי לאורך כל התקופה היה מאוד משמעותי, פירקנו את כל הגורמים שמעכבים אותי, משם יצרנו פרוטוקולים פרקטיים שעזרו לי לאורך כל התקופה להתגבר על הדברים האלה, הצלחתי <strong>לנצח דברים שסחבתי איתי מהילדות</strong></p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><img src="https://group.liorochman.com/assets/jNIT5310GQ.png" alt="דביר צוברי" loading="lazy" decoding="async"><div><div class="review-name">דביר צוברי</div><div class="review-meta">30, מאמן ריצה</div></div></div>
+                    <p>במקצועיות, רגישות, ודיוק- ליאור העביר אותי מסע בזמן, מהמקום שאני נמצא בו היום, אל המקום שאני רוצה להגיע, תוך סשן של שלוש שעות בנינו <strong>תוכנית עבודה שהולכת לשנות</strong> את פני מערכות היחסים בחיי</p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><img src="https://group.liorochman.com/assets/Cio3611ZxA.png" alt="הראל סרי" loading="lazy" decoding="async"><div><div class="review-name">הראל סרי</div><div class="review-meta">25, סטודנט</div></div></div>
+                    <p>אחד הדברים העוצמתיים שעברתי, למדתי להכיר את עצמי יותר לעומק, הבנתי איפה אני רוצה להיות עוד כמה שנים, ביחד עם ליאור הורדנו את זה לפרקטיקה וידעתי <strong>בדיוק מה לעשות הלאה</strong>, ליאור מקצועי מאוד ומסור מעבר למצופה</p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><img src="https://group.liorochman.com/assets/OSJT9735IVY.png" alt="ערן פרץ" loading="lazy" decoding="async"><div><div class="review-name">ערן פרץ</div><div class="review-meta">25, צלם ויוצר</div></div></div>
+                    <p>באמצעות ההנחיה המדויקת שלו, ליאור ידע להוביל אותי לתובנות שמאוד פחדתי להתעסק איתם במערכות היחסים עם המשפחה ועם החברים, ליאור הצליח לגרום לי להבין <strong>איזה זוגיות אני רוצה ליצר</strong>, וביחד בנינו תוכנית פרקטית</p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><img src="https://group.liorochman.com/assets/E7308gEc.jpg" alt="אליעד צמח" loading="lazy" decoding="async"><div><div class="review-name">אליעד צמח</div><div class="review-meta">32, מתכנת</div></div></div>
+                    <p>רוכמן רציתי להגיד לך תודה על זה שפתחת לי את העיניים וגרמת לי להתמודד עם הבעיות שלי, מהרגע הראשון שמחתי לשתף ולהירתם לתהליך, כל שבוע חיכיתי למפגש, ידעת תמיד לאתגר אותי ולא עשית לי חיים קלים אף פעם- וזה מה שאפשר לי <strong>בפעם הראשונה להתקדם באמת</strong></p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><span class="review-initial" aria-hidden="true">א</span><div><div class="review-name">אדם בן שבת</div><div class="review-meta">25, עורך וידאו</div></div></div>
+                    <p><strong>אני שנה מסיום התהליך, והשינוי הולך איתי עד היום</strong> - שיניתי דפוסי התנהגות שסחבתי כל החיים, ואפילו תחומי חיים שבכלל לא התעסקנו בהם, השתפרו פלאים בעקבות השינוי העמוק שלי</p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><span class="review-initial" aria-hidden="true">ב</span><div><div class="review-name">בוריס לויט</div><div class="review-meta">28, יזם</div></div></div>
+                    <p>היה תהליך מאוד משמעותי, כל שבוע מחדש גיליתי על עצמי דברים אחרים- הבנתי את <strong>האמונות המגבילות שלי</strong> גם בתפקיד וגם בחיים האישיים, כבן זוג, התייעצתי עם ליאור המון על דילמות במהלך השבוע</p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><img src="https://group.liorochman.com/assets/mmx1783QoQ.jpg" alt="איתי פאר" loading="lazy" decoding="async"><div><div class="review-name">איתי פאר</div><div class="review-meta">21, סטודנט</div></div></div>
+                    <p>כבר בשיחת הטלפון הראשונה קיבלתי וודאות ומעטפת ראשונית שהייתי ממש צריך באותה תקופה, בתהליך למדתי לקבל החלטות בצורה יותר טובה, הבנתי שאני פועל מתוך ריצוי של הסביבה, וביטלתי את התואר שהייתי אמור לגשת אליו- <strong>זה שינה לי את החיים מקצה לקצה</strong></p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><img src="https://group.liorochman.com/assets/SXrA5813WGE.jpeg" alt="אלון נגר" loading="lazy" decoding="async"><div><div class="review-name">אלון נגר</div><div class="review-meta">25, איש שיווק</div></div></div>
+                    <p>רציתי לקחת רגע ולהודות לך מעומק הלב על תהליך האימון המנטלי שעברנו יחד. גם אם הדברים לא התגבשו בדיוק למציאות שדמיינתי, התהליך עצמו פתח לי <strong>תובנות עמוקות ומשמעותיות</strong> לחיים - כאלה שילוו אותי עוד הרבה זמן קדימה, ושוות הרבה הרבה יותר מהמטרה שהצבנו בדרך.</p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><img src="https://group.liorochman.com/assets/mOgL3642JI.jpg" alt="נועם גרינבאום" loading="lazy" decoding="async"><div><div class="review-name">נועם גרינבאום</div><div class="review-meta">22, סטודנט</div></div></div>
+                    <p>בעקבות התהליך אני כבר לא מרגיש בפומו על החברים, ביום-יום אני מרגיש הרבה יותר חיי, שמח, לפני התהליך פחדתי לצאת לנסיעות לבד, והיום זה המשימה הראשונה הקלילה של היום. תכלס - <strong>ירדה לי המועקה מהגרון</strong>, יש לי שקט בראש</p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><span class="review-initial" aria-hidden="true">ע</span><div><div class="review-name">עומר גבאי</div><div class="review-meta">21, סטודנט</div></div></div>
+                    <p>הגעתי לליאור קצת אחרי השחרור מהצבא, התחלתי ללמוד והכל הסתדר לי, אבל מבפנים הרגשתי מרוקן, מהילדות אני לא מצליח לנהל מערכות יחסים חבריות כמו שצריך, ואף פעם לא הייתי בקשר זוגי. בתהליך עם ליאור הבנתי פעם ראשונה את הבעיה שלי- שהכל נובע מתפיסה שלי כלפי מערכות היחסים בחיי, ועכשיו כשאני חודשיים אחרי התהליך, לראשונה אני מנהל קשרים חברתיים עם הסטודנטים שסביבי, <strong>ואפילו בתחילת קשר זוגי פעם ראשונה</strong>- ליאור לגמרי שינה לי את החיים.</p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><img src="https://group.liorochman.com/assets/ZeLO5184Gnk.png" alt="עדן חביב" loading="lazy" decoding="async"><div><div class="review-name">עדן חביב</div><div class="review-meta">30, מנהל פרויקטים</div></div></div>
+                    <p>התהליך בשלב הראשון עשה לי סדר בראש בתקופה הכי מאתגרת בחיי, ביחד עם ליאור יצרתי יעדים ומטרות ברורים קדימה, ובנינו תוכנית עבודה סדורה להשגת המטרות האלה, ליאור עם המון ניסיון, <strong>נתן אוזן קשבת 24/7</strong></p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><img src="https://group.liorochman.com/assets/elp4727Oww.jpeg" alt="דביר ימין" loading="lazy" decoding="async"><div><div class="review-name">דביר ימין</div><div class="review-meta">25, יזם</div></div></div>
+                    <p>הגעתי לליאור במטרה להשתחרר מהצבא, לופ שאני נמצא בו כבר שנים, והתהליך בסוף בכלל התעסק במערכות היחסים שלי, גיליתי שאני לא במקום שאני רוצה- ברמה הזוגית והחברתית, התהליך עזר לי לבסס את הבטחון העצמי שלי מחדש, לבנות תוכנית עבודה נכונה לבניית העסק ושחרור מהצבא, במקביל לתחזוק הזוגיות שלי. <strong>לגמרי שינה את חיי בכל הפרמטרים</strong>.</p>
+                </figure>
             </div>
         </div>
     </section>
