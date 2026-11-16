@@ -157,9 +157,23 @@ a:hover .arrow,a:focus-visible .arrow{transform:translateX(-5px)}
 
 /* voice of a client */
 .voice{background:var(--mist)}
-.voice-quote{font-family:var(--display);font-weight:900;font-size:clamp(28px,4.6vw,46px);line-height:1.12;letter-spacing:-.025em;max-width:24ch;margin:0}
-.voice-quote mark{background:linear-gradient(transparent 58%,var(--light) 58%);color:inherit;padding-inline:2px}
-.voice-cite{display:block;margin-top:16px;color:var(--mute);font-size:17px;font-style:normal;font-family:var(--body);font-weight:600;letter-spacing:0}
+.section-title mark{background:linear-gradient(transparent 58%,var(--light) 58%);color:inherit;padding-inline:2px}
+.shots{display:grid;grid-template-columns:1fr;gap:16px;align-items:start;max-width:420px;margin-inline:auto}
+.shot{margin:0;border-radius:18px;overflow:hidden;box-shadow:0 18px 40px -24px rgba(11,16,32,.45);background:#fff}
+.shot img{width:100%;height:auto}
+.reviews-label{margin:56px 0 18px;font-family:var(--display);font-weight:700;font-size:22px}
+.reviews{display:grid;grid-template-columns:1fr;gap:16px}
+.review{margin:0;background:#fff;border-radius:20px;padding:24px;border:1px solid var(--line)}
+.review-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.review-head img{width:48px;height:48px;border-radius:50%;object-fit:cover}
+.review-name{font-weight:700;font-size:17px;line-height:1.2}
+.review-meta{color:var(--mute);font-size:15px}
+.review p{font-size:17px;line-height:1.6}
+.review strong{background:linear-gradient(transparent 60%,var(--light) 60%)}
+@media (min-width:760px){
+    .shots{grid-template-columns:repeat(3,1fr);max-width:none}
+    .reviews{grid-template-columns:repeat(3,1fr)}
+}
 
 /* closing band */
 .closing{background:var(--ink);color:#fff;text-align:center;border-bottom:1px solid rgba(255,255,255,.14)}
@@ -268,12 +282,32 @@ fbq('track','PageView');
         </div>
     </section>
 
-    <section class="section voice" aria-label="מה כתבו לי אחרי שיחה">
+    <section class="section voice" aria-labelledby="voice-title">
         <div class="wrap">
-            <blockquote class="voice-quote">
-                <p>"אני יוצאת עכשיו מהדייט השני, ולא עסוקה במה הוא חושב עליי. <mark>פעם ראשונה!!!</mark>"</p>
-                <cite class="voice-cite">מתאמנת, אחרי שיחת פיצוח</cite>
-            </blockquote>
+            <div class="section-head">
+                <h2 class="section-title" id="voice-title">מה כתבו לי <mark>אחרי שיחה אחת</mark></h2>
+            </div>
+            <div class="shots">
+                <figure class="shot"><img src="https://group.liorochman.com/assets/call-w2.webp" alt="צילום מסך מוואטסאפ: אני יוצאת עכשיו מהדייט השני ולא עסוקה במה הוא חושב עליי" loading="lazy" decoding="async"></figure>
+                <figure class="shot"><img src="https://group.liorochman.com/assets/call-w3b.webp" alt="צילום מסך מוואטסאפ: סוף סוף אני מרגישה שזה יכול להיות משהו בכיוון" loading="lazy" decoding="async"></figure>
+                <figure class="shot"><img src="https://group.liorochman.com/assets/call-w4.webp" alt="צילום מסך מוואטסאפ: בשיחה איתך עזרת לי להבין חלק מהאמונות המגבילות שלי" loading="lazy" decoding="async"></figure>
+            </div>
+
+            <h3 class="reviews-label">ומה כתבו אחרי התהליך</h3>
+            <div class="reviews">
+                <figure class="review">
+                    <div class="review-head"><img src="https://group.liorochman.com/assets/sY2334Nz.jpeg" alt="הדר אפרת" loading="lazy" decoding="async"><div><div class="review-name">הדר אפרת</div><div class="review-meta">46, רואת חשבון</div></div></div>
+                    <p>הגעתי לליאור קצת מפוחדת וחסרת בטחון לגבי זוגיות... התחלתי לעבוד עם אמונה שפעם ראשונה זה יכול לעבוד. בזכות הרגישות שלו וכך שלא וויתר לי, ליאור הצליח להוביל אותי לעשות דברים שלא חלמתי שאצליח לעשות... <strong>לאחרונה אחרי ארבע שנים אני בתחילתה של זוגיות חדשה</strong>.</p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><img src="https://group.liorochman.com/assets/Ezg6120nf.jpg" alt="ענבל ובר" loading="lazy" decoding="async"><div><div class="review-name">ענבל ובר</div><div class="review-meta">25, מעצבת אופנה</div></div></div>
+                    <p>קיבלתי הרגשה כל-כך טובה מהתהליך עם ליאור, הוא היה הכי מקצועי שאפשר, כיוון אותי למקומות המדויקים לי ביותר, וזו באמת <strong>הפעם הראשונה שאני מצליחה לצאת לדרך</strong> בביטחון ובכיף.</p>
+                </figure>
+                <figure class="review">
+                    <div class="review-head"><img src="https://group.liorochman.com/assets/sIzs3008jso.png" alt="נעמי קמון" loading="lazy" decoding="async"><div><div class="review-name">נעמי קמון</div><div class="review-meta">22, מורה</div></div></div>
+                    <p>ליאור היה לא רק מאמן הוא היה שם כאדם בגובה העיניים ותמך לאורך כל הדרך- לקח אותי לרמה ולמחויבות שלא הכרתי בעצמי, נתן לי <strong>אומץ ובטחון</strong> לפעול ולעשות מתוך אמון מלא ביכולת שלי.</p>
+                </figure>
+            </div>
         </div>
     </section>
 
