@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ליאור רוכמן | אימון מנטלי לזוגיות</title>
-<meta name="description" content="ליאור רוכמן, מאמן מנטלי לזוגיות. שאלונים חינמיים, קורס דיגיטלי לבניית פרופיל היכרויות מדויק ותהליך אימון קבוצתי, לאנשים שמצליחים כמעט בכל תחום ותקועים דווקא בזוגיות.">
+<meta name="description" content="ליאור רוכמן, מאמן מנטלי לזוגיות. מלווה נשים הישגיות לזוגיות, בלי להקטין את עצמן. שיחה חינמית של 45 דקות: מוצאים את הדפוס שעוצר אותך בדייטים ואת האמונה שמאחוריו.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://liorochman.com/">
 <meta property="og:type" content="profile">
 <meta property="og:locale" content="he_IL">
 <meta property="og:site_name" content="ליאור רוכמן - אימון מנטלי">
 <meta property="og:title" content="ליאור רוכמן | אימון מנטלי לזוגיות">
-<meta property="og:description" content="שאלונים חינמיים, קורס דיגיטלי ותהליך אימון קבוצתי, לאנשים שמצליחים כמעט בכל תחום ותקועים דווקא בזוגיות.">
+<meta property="og:description" content="שיחה חינמית של 45 דקות לנשים הישגיות שנתקעות דווקא בדייטים: מוצאים את הדפוס ואת האמונה שמאחוריו.">
 <meta property="og:url" content="https://liorochman.com/">
 <meta property="og:image" content="https://liorochman.com/assets/og.jpg">
 <meta property="og:image:width" content="1200">
@@ -19,7 +19,7 @@
 <meta property="og:image:alt" content="ליאור רוכמן, אימון מנטלי לזוגיות">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="ליאור רוכמן | אימון מנטלי לזוגיות">
-<meta name="twitter:description" content="שאלונים חינמיים, קורס דיגיטלי ותהליך אימון קבוצתי, לאנשים שמצליחים כמעט בכל תחום ותקועים דווקא בזוגיות.">
+<meta name="twitter:description" content="שיחה חינמית של 45 דקות לנשים הישגיות שנתקעות דווקא בדייטים: מוצאים את הדפוס ואת האמונה שמאחוריו.">
 <meta name="twitter:image" content="https://liorochman.com/assets/og.jpg">
 <meta name="theme-color" content="#0B1020">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -48,7 +48,7 @@
       "inLanguage": "he",
       "isPartOf": {"@id": "https://liorochman.com/#website"},
       "primaryImageOfPage": "https://liorochman.com/assets/lior-rochman.jpg",
-      "dateModified": "2026-11-08T12:00:00+02:00",
+      "dateModified": "2026-11-16T14:00:00+02:00",
       "mainEntity": {"@id": "https://liorochman.com/#lior"}
     },
     {
@@ -57,7 +57,7 @@
       "name": "ליאור רוכמן",
       "alternateName": "Lior Rochman",
       "jobTitle": "מאמן מנטלי לזוגיות",
-      "description": "מאמן מנטלי לזוגיות. מלווה אנשים שמצליחים כמעט בכל תחום ותקועים דווקא בזוגיות.",
+      "description": "מאמן מנטלי לזוגיות. מלווה נשים הישגיות לזוגיות, בלי להקטין את עצמן.",
       "url": "https://liorochman.com/",
       "image": "https://liorochman.com/assets/lior-rochman.jpg",
       "knowsAbout": ["זוגיות", "דייטינג", "אפליקציות היכרויות", "אימון מנטלי"],
@@ -143,28 +143,29 @@ a:hover .arrow,a:focus-visible .arrow{transform:translateX(-5px)}
 .section-title{font-family:var(--display);font-weight:900;font-size:clamp(32px,5.2vw,50px);line-height:1.05;letter-spacing:-.03em}
 .section-sub{color:var(--mute);margin-top:10px;font-size:18px}
 
-/* free quizzes: a plain list, because that is what it is */
-.quiz-list{list-style:none;margin:0;padding:0;border-top:2px solid var(--ink)}
-.quiz{display:grid;grid-template-columns:1fr auto;gap:6px 18px;align-items:center;padding:22px 4px;border-bottom:1px solid var(--line);text-decoration:none;transition:background .18s ease,padding .18s ease}
-.quiz:hover,.quiz:focus-visible{background:var(--light);padding-inline:16px}
-.quiz-title{font-family:var(--display);font-weight:700;font-size:clamp(20px,2.6vw,25px);line-height:1.25}
-.quiz-desc{grid-column:1;color:var(--mute);font-size:17px;line-height:1.5}
-.quiz:hover .quiz-desc,.quiz:focus-visible .quiz-desc{color:var(--ink)}
-.quiz .arrow{grid-column:2;grid-row:1 / span 2;font-size:26px;font-weight:700}
-.tag{display:inline-block;font-size:13px;font-weight:700;background:var(--ink);color:var(--light);padding:2px 10px;border-radius:999px;margin-inline-start:10px;vertical-align:middle;letter-spacing:.02em}
+/* the call: what you leave with */
+.steps{list-style:none;margin:0;padding:0;border-top:2px solid var(--ink);counter-reset:st}
+.step{display:grid;grid-template-columns:auto 1fr;gap:4px 20px;padding:24px 4px;border-bottom:1px solid var(--line);counter-increment:st}
+.step::before{content:counter(st);grid-row:1 / span 2;font-family:var(--display);font-weight:900;font-size:40px;line-height:1;color:var(--light-deep)}
+.step-title{font-family:var(--display);font-weight:700;font-size:clamp(21px,2.6vw,26px);line-height:1.25}
+.step-desc{color:var(--mute);font-size:17px;line-height:1.55}
+.call-note{margin-top:22px;font-weight:700}
+.section-cta{margin-top:30px}
+.btn-ink{background:var(--ink);color:#fff}
+.btn-ink:hover{background:var(--ink-soft)}
+.hero-meta{margin-top:14px;font-size:15px;color:#B9BFCC}
 
-/* paid work */
-.deep{background:var(--mist)}
-.offers{display:grid;grid-template-columns:1fr;gap:18px}
-.offer{display:flex;flex-direction:column;gap:14px;padding:30px 26px;border-radius:24px;text-decoration:none;min-height:280px;transition:transform .2s ease}
-.offer:hover,.offer:focus-visible{transform:translateY(-4px)}
-.offer-kind{font-weight:700;font-size:15px;letter-spacing:.03em}
-.offer-title{font-family:var(--display);font-weight:900;font-size:clamp(28px,3.6vw,38px);line-height:1.08;letter-spacing:-.025em}
-.offer-desc{font-size:18px;line-height:1.55}
-.offer-cta{margin-top:auto;font-weight:700;font-size:17px;display:inline-flex;gap:10px;align-items:center}
-.offer-course{background:var(--light);color:var(--ink)}
-.offer-group{background:var(--ink);color:#fff}
-.offer-group .offer-kind,.offer-group .offer-cta{color:var(--light)}
+/* voice of a client */
+.voice{background:var(--mist)}
+.voice-quote{font-family:var(--display);font-weight:900;font-size:clamp(28px,4.6vw,46px);line-height:1.12;letter-spacing:-.025em;max-width:24ch;margin:0}
+.voice-quote mark{background:linear-gradient(transparent 58%,var(--light) 58%);color:inherit;padding-inline:2px}
+.voice-cite{display:block;margin-top:16px;color:var(--mute);font-size:17px;font-style:normal;font-family:var(--body);font-weight:600;letter-spacing:0}
+
+/* closing band */
+.closing{background:var(--ink);color:#fff;text-align:center;border-bottom:1px solid rgba(255,255,255,.14)}
+.closing .section-title{margin-inline:auto;max-width:20ch}
+.closing .section-sub{color:#D3D7E0;margin-inline:auto;max-width:44ch;margin-top:14px}
+.closing .hero-actions{justify-content:center}
 
 /* about */
 .about-grid{display:grid;grid-template-columns:1fr;gap:28px}
@@ -194,10 +195,8 @@ a.channel:hover,a.channel:focus-visible{border-color:var(--light);background:var
     .hero-grid{grid-template-columns:1.15fr .85fr;gap:48px;padding-block:34px 84px}
     .hero-photo{width:100%;max-width:400px;margin-inline:auto 0}
     .section{padding-block:92px}
-    .offers{grid-template-columns:1fr 1fr}
-    .offer{padding:38px 34px;min-height:340px}
     .about-grid{grid-template-columns:.9fr 1.1fr;gap:56px;align-items:start}
-    .channels{grid-template-columns:repeat(3,1fr)}
+    .channels{grid-template-columns:repeat(2,1fr)}
 }
 </style>
 <!-- Meta Pixel (same pixel as blindspot) -->
@@ -222,11 +221,12 @@ fbq('track','PageView');
             <div>
                 <p class="hero-role">אימון מנטלי לזוגיות</p>
                 <h1 class="hero-name" aria-label="ליאור רוכמן"><span>לי<span class="or">אור</span></span> <span>רוכמן</span></h1>
-                <p class="hero-lead">אני מלווה אנשים שמצליחים כמעט בכל תחום, ותקועים דווקא בזוגיות, לשבור את הדפוס שחוזר על עצמו ולבנות זוגיות אמיתית.</p>
+                <p class="hero-lead">רגילה להצליח, ודווקא בדייטים נתקעת? אני מלווה נשים הישגיות לזוגיות, בלי להקטין את עצמן.</p>
                 <div class="hero-actions">
-                    <a class="btn btn-light" href="https://blindspot.liorochman.com/">לגלות מה עוצר אותי בדייטים <span class="arrow" aria-hidden="true">←</span></a>
+                    <a class="btn btn-light" href="https://liorochman.com/call/?utm_source=homepage&amp;utm_medium=site">לשיחה חינמית איתי <span class="arrow" aria-hidden="true">←</span></a>
                     <a class="btn btn-ghost" href="#about">קצת עליי</a>
                 </div>
+                <p class="hero-meta">45 דקות בזום · בחינם · בלי התחייבות</p>
             </div>
             <div class="hero-photo">
                 <img src="assets/lior-rochman.webp" width="800" height="1000" alt="ליאור רוכמן, מאמן מנטלי לזוגיות" fetchpriority="high">
@@ -237,57 +237,43 @@ fbq('track','PageView');
 
 <main id="main">
 
-    <section class="section" aria-labelledby="start-title">
+    <section class="section" aria-labelledby="call-title">
         <div class="wrap">
             <div class="section-head">
-                <h2 class="section-title" id="start-title">מתחילים כאן</h2>
-                <p class="section-sub">ארבעה שאלונים קצרים, בחינם. כל אחד מהם מאיר נקודה אחרת.</p>
+                <h2 class="section-title" id="call-title">זה לא במקרה שזה נתקע</h2>
+                <p class="section-sub">יש דפוס שחוזר אצלך בכל פעם שזה מתחיל להיות רציני, ויש אמונה שמנהלת אותו. בשיחה אחת איתי נמצא את שניהם.</p>
             </div>
-            <ul class="quiz-list">
-                <li><a class="quiz" href="https://blindspot.liorochman.com/">
-                    <span class="quiz-title">מה עוצר אותי בדייטים?<span class="tag">הכי מומלץ להתחיל ממנו</span></span>
-                    <span class="quiz-desc">אבחון Blindspots: מזהה את הדפוס שחוזר אצלכם בדייטים בלי ששמים לב.</span>
-                    <span class="arrow" aria-hidden="true">←</span>
-                </a></li>
-                <li><a class="quiz" href="https://partnerquiz.liorochman.com/">
-                    <span class="quiz-title">המצפן הזוגי: מי משלים אתכם?</span>
-                    <span class="quiz-desc">מי בן או בת הזוג שמתאימים לכם באמת, ולמה עד היום נמשכתם לאנשים אחרים.</span>
-                    <span class="arrow" aria-hidden="true">←</span>
-                </a></li>
-                <li><a class="quiz" href="https://datingappquiz.liorochman.com/">
-                    <span class="quiz-title">איזו אפליקציית היכרויות מתאימה לכם?</span>
-                    <span class="quiz-desc">כמה שאלות, ותדעו באיזו אפליקציה שווה לכם להשקיע, ולמה.</span>
-                    <span class="arrow" aria-hidden="true">←</span>
-                </a></li>
-                <li><a class="quiz" href="https://liorocman1234-maker.github.io/datingprofilecheck/">
-                    <span class="quiz-title">הערכת פרופיל ההיכרויות שלי</span>
-                    <span class="quiz-desc">שבע שאלות שמראות איפה הפרופיל שלכם עומד היום.</span>
-                    <span class="arrow" aria-hidden="true">←</span>
-                </a></li>
-            </ul>
+            <ol class="steps">
+                <li class="step">
+                    <span class="step-title">הרגע שבו זה נתקע</span>
+                    <span class="step-desc">נפרק יחד את הרגע המדויק, עם דוגמאות אמיתיות מהדייטים שלך.</span>
+                </li>
+                <li class="step">
+                    <span class="step-title">הדפוס שלך, במשפט אחד</span>
+                    <span class="step-desc">"כש... קורה, אני מגיבה כך". זה מה שחוזר אצלך שוב ושוב.</span>
+                </li>
+                <li class="step">
+                    <span class="step-title">האמונה שמאחוריו</span>
+                    <span class="step-desc">הדבר שבאמת צריך לשנות, לא עוד טיפ לדייט.</span>
+                </li>
+                <li class="step">
+                    <span class="step-title">כיוון ברור</span>
+                    <span class="step-desc">מה את רוצה שיקרה בזוגיות עוד שנה, ומה השינוי הראשון שצריך לקרות כבר החודש.</span>
+                </li>
+            </ol>
+            <p class="call-note">את כל זה את לוקחת איתך, גם אם תחליטי לא להמשיך איתי.</p>
+            <div class="section-cta">
+                <a class="btn btn-ink" href="https://liorochman.com/call/?utm_source=homepage&amp;utm_medium=site">לקבוע שיחה <span class="arrow" aria-hidden="true">←</span></a>
+            </div>
         </div>
     </section>
 
-    <section class="section deep" aria-labelledby="deep-title">
+    <section class="section voice" aria-label="מה כתבו לי אחרי שיחה">
         <div class="wrap">
-            <div class="section-head">
-                <h2 class="section-title" id="deep-title">לעבוד לעומק</h2>
-                <p class="section-sub">שתי דרכים לעבוד איתי, לפי השלב שאתם נמצאים בו.</p>
-            </div>
-            <div class="offers">
-                <a class="offer offer-course" href="https://digitalcourse.liorochman.com/">
-                    <span class="offer-kind">קורס דיגיטלי</span>
-                    <h3 class="offer-title">בניית פרופיל היכרויות מדויק</h3>
-                    <p class="offer-desc">17 ימים ו-4 מודולים. בסוף יש לכם פרופיל שמציג את מי שאתם באמת, ומביא התאמות איכותיות בהינג', בטינדר ובבאמבל.</p>
-                    <span class="offer-cta">לפרטים על הקורס <span class="arrow" aria-hidden="true">←</span></span>
-                </a>
-                <a class="offer offer-group" href="https://group.liorochman.com/">
-                    <span class="offer-kind">אימון מנטלי קבוצתי</span>
-                    <h3 class="offer-title">לפרוץ את מחסום הדייט השלישי</h3>
-                    <p class="offer-desc">6 מפגשים קבוצתיים ו-4 מפגשים אישיים. עובדים על השורש ויוצאים לפעולה, עד שנבנית זוגיות אמיתית.</p>
-                    <span class="offer-cta">לפרטים על התהליך <span class="arrow" aria-hidden="true">←</span></span>
-                </a>
-            </div>
+            <blockquote class="voice-quote">
+                <p>"אני יוצאת עכשיו מהדייט השני, ולא עסוקה במה הוא חושב עליי. <mark>פעם ראשונה!!!</mark>"</p>
+                <cite class="voice-cite">מתאמנת, אחרי שיחת פיצוח</cite>
+            </blockquote>
         </div>
     </section>
 
@@ -305,27 +291,32 @@ fbq('track','PageView');
         </div>
     </section>
 
+    <section class="section closing" aria-labelledby="closing-title">
+        <div class="wrap">
+            <h2 class="section-title" id="closing-title">הצעד הראשון: שיחה איתי</h2>
+            <p class="section-sub">45 דקות בזום, בחינם. את עונה קודם על שתי שאלות קצרות, ואני מגיע לשיחה מוכן.</p>
+            <div class="hero-actions">
+                <a class="btn btn-light" href="https://liorochman.com/call/?utm_source=homepage&amp;utm_medium=site">לשיחה חינמית איתי <span class="arrow" aria-hidden="true">←</span></a>
+            </div>
+        </div>
+    </section>
+
     <section class="section follow" aria-labelledby="follow-title">
         <div class="wrap">
             <div class="section-head">
-                <h2 class="section-title" id="follow-title">להמשיך מכאן</h2>
-                <p class="section-sub">איפה אני כותב, מצלם ומדבר באופן קבוע.</p>
+                <h2 class="section-title" id="follow-title">עוד לא מוכנה לשיחה?</h2>
+                <p class="section-sub">אפשר להתחיל מהפודקאסט.</p>
             </div>
             <div class="channels">
-                <a class="channel" href="https://www.instagram.com/lior_rochman/" target="_blank" rel="noopener">
-                    <span class="channel-name">אינסטגרם</span>
-                    <span class="channel-desc">תוכן על זוגיות, דפוסים ועבודה פנימית.</span>
-                    <span class="channel-go" dir="ltr">@lior_rochman</span><span class="sr">נפתח בחלון חדש</span>
-                </a>
                 <a class="channel" href="https://pod.link/6804400587" target="_blank" rel="noopener">
                     <span class="channel-name">הפודקאסט "מדליקים את האור"</span>
                     <span class="channel-desc">אני ולהב מדברים בפתיחות על זוגיות, דייטינג, רוחניות ועסקים.</span>
                     <span class="channel-go">להאזנה לפודקאסט <span class="arrow" aria-hidden="true">←</span></span><span class="sr">נפתח בחלון חדש</span>
                 </a>
-                <a class="channel" href="https://chat.whatsapp.com/KLs5p2WrL3EFJbIQxkZ8Fu" target="_blank" rel="noopener">
-                    <span class="channel-name">הקבוצה השקטה בוואטסאפ</span>
-                    <span class="channel-desc">כלים וטיפים ישר לוואטסאפ.</span>
-                    <span class="channel-go">להצטרף לקבוצה <span class="arrow" aria-hidden="true">←</span></span><span class="sr">נפתח בחלון חדש</span>
+                <a class="channel" href="https://www.instagram.com/lior_rochman/" target="_blank" rel="noopener">
+                    <span class="channel-name">אינסטגרם</span>
+                    <span class="channel-desc">תוכן על זוגיות, דפוסים ועבודה פנימית.</span>
+                    <span class="channel-go" dir="ltr">@lior_rochman</span><span class="sr">נפתח בחלון חדש</span>
                 </a>
             </div>
         </div>
