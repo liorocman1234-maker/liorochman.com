@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>סנגהה</title>
+<meta name="description" content="הבית של סנגהת המדיטציה">
+<meta name="theme-color" content="#0E1B14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="סנגהה">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bellefair&family=IBM+Plex+Sans+Hebrew:wght@300;400;500;600;700&display=swap">
+<link rel="stylesheet" href="styles.css?v=2">
+</head>
+<body>
+<div id="splash"><img src="icons/icon-192.png" alt=""><span>סנגהה</span></div>
+<main id="view" aria-live="polite"></main>
+<div id="player" hidden></div>
+<nav id="nav" hidden aria-label="ניווט ראשי"></nav>
+<div id="sheet" hidden></div>
+<div id="toast" role="status" hidden></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<div id="offline" hidden>אין חיבור לרשת. מה שתסמנו יישמר כשהחיבור יחזור.</div>
+<script src="config.js?v=2"></script>
+<script src="app.js?v=2"></script>
+</body>
+</html>
