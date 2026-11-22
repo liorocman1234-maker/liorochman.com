@@ -175,3 +175,15 @@ table.admin td{padding:8px 4px;border-bottom:1px solid var(--line);vertical-alig
 .reading-body{white-space:pre-wrap;overflow-wrap:anywhere;margin:0;line-height:1.8;color:var(--ink-2)}
 .reading-more summary{cursor:pointer;color:var(--gold);font-size:14px;padding:6px 0}
 article[data-reading] h3{overflow-wrap:anywhere}
+
+/* v6: marking past challenge days */
+.bf-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;flex:none}
+.bf-head{text-align:center;color:var(--muted);font-size:12px}
+.bf-day{position:relative;min-height:48px;border:1px solid var(--line);border-radius:14px;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15;cursor:pointer;padding:4px 0;touch-action:manipulation}
+.bf-day span{font-size:11px;color:var(--muted)}
+.bf-day[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:var(--bg)}
+.bf-day[aria-pressed="true"] span{color:var(--bg)}
+.bf-day:disabled{opacity:.6;cursor:default}
+.bf-day:disabled::after{content:"✓";position:absolute;top:2px;inset-inline-end:6px;font-size:11px}
+.bf-foot{position:sticky;bottom:calc(-24px - env(safe-area-inset-bottom,0px));background:var(--surface);padding:10px 0 calc(14px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px}
+#bf-save:disabled{opacity:.5}

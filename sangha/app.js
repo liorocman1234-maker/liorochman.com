@@ -423,6 +423,7 @@ VIEWS.home = async function () {
 
   ${ch && ch.last ? `<div class="banner" id="ch-last"><h3>הגענו ליום ${ch.days_target} 🌳</h3><p class="small" style="color:var(--ink-2)">מזל טוב. אפשר כבר לבחור את המסע שיתחיל מחר.</p><button class="btn block" data-go="goal">לבחור את המסע הבא</button></div>` : ''}
   <div class="card" id="practice"></div>
+  ${backfillCardHtml()}
   ${otherJourneys().map(x => `<button class="card gold row" data-go="journey" style="flex-direction:row;cursor:pointer;text-align:right"><span class="grow"><span class="eyebrow">${x.season_id ? 'מסע קבוצתי' : 'מסע אישי'}</span><br>${esc(journeyName(x))}</span><b class="num">${goalDone(x)} / ${x.days_target}</b></button>`).join('')}
 
   <div class="card"><div class="row"><div class="grow">
@@ -439,7 +440,7 @@ VIEWS.home = async function () {
 
   ${q ? `<div class="card"><span class="eyebrow">משפט ליום${q.source ? ' · ' + esc(q.source) : ''}</span><p class="quote">${esc(q.text)}</p></div>` : ''}
   ${danaHtml()}`;
-  bindGo(); paintPractice();
+  bindGo(); bindBackfill(); paintPractice();
   if (live && live.now) { const zc = $('#zoom') && $('#zoom').closest('.card'), hero = $('.hero'); if (zc && hero) hero.after(zc); }
   const z = $('#zoom'); if (z) z.onclick = () => { markSitting(+(st.live_minutes || 60)); };
   $$('[data-rec]').forEach(b => b.onclick = () => playRecording(b.dataset.rec));
@@ -522,6 +523,80 @@ function paintPulse() {
     ${ws.length ? `<div class="cloud">${ws.map(([w, n]) => `<span style="font-size:${15 + Math.min(n, 5) * 4}px;opacity:${.6 + Math.min(n, 4) * .1}">${esc(w)}</span>`).join('')}</div>` : ''}`;
 }
 
+// ---------- marking past challenge days ----------
+// A day marked in retrospect is stored with 0 minutes. A normal log always has at least 1,
+// so the two never mix, and only retrospective marks can be removed here.
+const isBackfill = p => Number(p.minutes) === 0;
+const pastChallengeDays = () => S.challenge ? S.challenge.dates.filter(d => d < today()) : [];
+const backfillSeenKey = () => `sangha-backfill-seen-${S.session.user.id}-${S.challenge.start_date}`;
+function backfillCardHtml() {
+  if (!S.challenge || S.mine.some(isBackfill)) return '';
+  const have = new Set(S.mine.map(p => p.day));
+  if (pastChallengeDays().every(d => have.has(d))) return '';
+  try { if (localStorage.getItem(backfillSeenKey())) return ''; } catch (_) {}
+  return `<div class="card gold" id="bf-card"><h3>תרגלת לפני האפליקציה?</h3>
+    <p class="small">אפשר לסמן את ימי האתגר שכבר תרגלת, והזרע יגדל בהתאם.</p>
+    <div class="row wrap"><button class="btn grow" data-backfill>סימון ימים קודמים</button><button class="btn link" id="bf-later">לא עכשיו</button></div></div>`;
+}
+function bindBackfill() {
+  $$('[data-backfill]', view).forEach(b => b.onclick = backfillSheet);
+  const later = $('#bf-later', view);
+  if (later) later.onclick = () => {
+    try { localStorage.setItem(backfillSeenKey(), '1'); } catch (_) {}
+    $('#bf-card').remove(); toast('אפשר לסמן בכל זמן במסך "המסע"');
+  };
+}
+function backfillSheet() {
+  syncChallenge();
+  if (!S.challenge) return;
+  const dates = pastChallengeDays();
+  const logged = new Set(S.mine.filter(p => !isBackfill(p)).map(p => p.day));
+  const before = new Set(S.mine.filter(isBackfill).map(p => p.day).filter(d => dates.includes(d)));
+  const picked = new Set(before), open = dates.filter(d => !logged.has(d));
+  const changed = () => picked.size !== before.size || [...picked].some(d => !before.has(d));
+  openSheet(`<h2>באילו ימים תרגלת?</h2>
+    <p class="small">לוחצים על כל יום שתרגלת, בזום, מהקלטה או לבד. אפשר גם לסמן הכל ולהוריד את מה שפספסת.</p>
+    <div class="row wrap"><button class="btn ghost small grow" id="bf-all">סימון הכל</button><button class="btn ghost small grow" id="bf-none">ניקוי הסימון</button></div>
+    <div class="bf-grid" id="bf-grid">${['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳'].map(d => `<span class="bf-head">${d}</span>`).join('')}${dates.map((d, i) =>
+      `<button class="bf-day" data-day="${d}" ${i ? '' : `style="grid-column-start:${new Date(d + 'T12:00:00Z').getUTCDay() + 1}"`} ${logged.has(d) ? 'disabled' : ''} aria-pressed="false" aria-label="יום ${i + 1}, ${heDate(d)}"><b class="num">${i + 1}</b><span>${shortDate(d)}</span></button>`).join('')}</div>
+    ${logged.size && dates.some(d => logged.has(d)) ? '<p class="small">ימים עם ✓ כבר נרשמו באפליקציה.</p>' : ''}
+    <div class="bf-foot"><span class="small" id="bf-count"></span>
+      <div class="row"><button class="btn grow" id="bf-save">שמירה</button><button class="btn ghost" id="bf-cancel">ביטול</button></div></div>`, panel => {
+    const paint = () => {
+      $$('.bf-day', panel).forEach(b => b.setAttribute('aria-pressed', logged.has(b.dataset.day) || picked.has(b.dataset.day)));
+      const n = dates.filter(d => logged.has(d) || picked.has(d)).length;
+      $('#bf-count', panel).textContent = `סומנו ${n} מתוך ${dates.length} הימים שעברו`;
+      $('#bf-save', panel).disabled = !changed();
+    };
+    $('#bf-grid', panel).onclick = e => {
+      const b = e.target.closest('.bf-day'); if (!b || b.disabled) return;
+      const d = b.dataset.day; if (picked.has(d)) picked.delete(d); else picked.add(d);
+      paint();
+    };
+    $('#bf-all', panel).onclick = () => { open.forEach(d => picked.add(d)); paint(); };
+    $('#bf-none', panel).onclick = () => { picked.clear(); paint(); };
+    $('#bf-cancel', panel).onclick = closeSheet;
+    // a stray tap on the backdrop must not lose forty taps
+    sheet.onclick = e => { if (e.target !== sheet) return; if (changed()) toast('יש ללחוץ על שמירה או ביטול'); else closeSheet(); };
+    $('#bf-save', panel).onclick = async () => {
+      if (!navigator.onLine) return toast('צריך חיבור לרשת כדי לשמור ימים קודמים');
+      const btn = $('#bf-save', panel), uid = S.session.user.id;
+      const add = [...picked].filter(d => !before.has(d)).sort(), del = [...before].filter(d => !picked.has(d)).sort();
+      btn.disabled = true; btn.textContent = 'שומר…';
+      try {
+        if (add.length) await guard(sb.from('practices').upsert(add.map(day => ({ user_id: uid, day, mode: 'solo', minutes: 0, word: null })), { onConflict: 'user_id,day', ignoreDuplicates: true }));
+        if (del.length) await guard(sb.from('practices').delete().eq('user_id', uid).eq('minutes', 0).in('day', del));
+        S.mine = [...S.mine.filter(p => !del.includes(p.day)),
+          ...add.filter(d => !S.mine.some(p => p.day === d)).map(day => ({ day, mode: 'solo', minutes: 0, word: null }))].sort((x, y) => y.day.localeCompare(x.day));
+        closeSheet();
+        toast(S.mine.length ? `נשמר. הזרע שלך: ${STAGES[stageOf(S.mine.length)].n} 🌱` : 'הסימון עודכן');
+        if (current === 'home' || current === 'journey') VIEWS[current]();
+      } catch (_) { btn.disabled = false; btn.textContent = 'שמירה'; }
+    };
+    paint();
+  });
+}
+
 // ---------- JOURNEY ----------
 VIEWS.journey = async function () {
   syncChallenge(); if (!S.goal) return go('goal');
@@ -554,23 +629,25 @@ function seedCard() {
     <p class="small">${next ? `עוד ${next.at - total} ימי תרגול עד ${next.n}. הצמיחה לא מתאפסת בין יעדים.` : 'עץ פורח. כל יום ממשיך להוסיף.'}</p></div>`;
 }
 function recentCard() {
-  return `${S.mine.length ? `<div class="card"><span class="eyebrow">ימים אחרונים</span>${S.mine.slice(0, 7).map(p => `<div class="row"><span class="grow">${heDate(p.day)}</span><span class="small">${{ live: 'זום', recording: 'הקלטה', solo: 'לבד', breath: 'נשימה' }[p.mode]} · ${p.minutes} דק׳${p.word ? ' · ' + esc(p.word) : ''}</span></div>`).join('')}</div>` : ''}`;
+  return `${S.mine.length ? `<div class="card"><span class="eyebrow">ימים אחרונים</span>${S.mine.slice(0, 7).map(p => `<div class="row"><span class="grow">${heDate(p.day)}</span><span class="small">${isBackfill(p) ? 'סומן בדיעבד' : `${{ live: 'זום', recording: 'הקלטה', solo: 'לבד', breath: 'נשימה' }[p.mode]} · ${p.minutes} דק׳`}${p.word ? ' · ' + esc(p.word) : ''}</span></div>`).join('')}</div>` : ''}`;
 }
 function challengeJourney() {
   const ch = S.challenge, mine = new Set(S.mine.map(p => p.day)), t = today();
   view.innerHTML = `${header('המסע', ch.title)}
   <div class="stats"><div class="stat"><b class="num">${ch.day}</b><span class="small">מתוך ${ch.days_target}</span></div>
     <div class="stat"><b class="num">${ch.days_target - ch.day}</b><span class="small">ימים לסיום</span></div>
-    <div class="stat"><b class="num">${goalDone(ch)}</b><span class="small">ימים שסימנתי</span></div></div>
+    <div class="stat"><b class="num" id="ch-marked">${ch.dates.filter(d => mine.has(d)).length}</b><span class="small">ימים שסימנתי</span></div></div>
   <div class="card"><h3>${esc(challengeLine(ch))}</h3>
     <div class="dots">${ch.dates.map((d, i) => `<span class="dot ${mine.has(d) ? 'on' : d < t ? 'passed' : ''} ${d === t ? 'now' : ''}" title="יום ${i + 1} · ${shortDate(d)}"></span>`).join('')}</div>
-    <span class="small">זהב מלא הוא יום שסימנת. ימי האתגר שעברו מופיעים בזהב עדין, כי חלקם היו עוד לפני האפליקציה.</span></div>
+    <span class="small">זהב מלא הוא יום שסימנת. זהב עדין הוא יום שעבר ולא סומן.</span>
+    ${ch.day > 1 ? '<button class="btn block" data-backfill>סימון ימים שכבר תרגלתי</button>' : ''}</div>
   ${ch.last ? '<button class="btn block" data-journey="personal">לבחור את המסע הבא</button>' : ''}
   ${journeyCards()}
   ${seedCard()}
   <div class="card soft"><h3>יום שפספסת לא מוחק כלום</h3><p class="small" style="line-height:1.7">כל יום שישבת נשאר איתך. שישי ושבת לא נספרים באתגר. חמלה היא חלק מהתרגול.</p></div>
   ${recentCard()}`;
-  bindGo(); bindJourney();
+  bindGo(); bindJourney(); bindBackfill();
+  if (ch.day > 1) { const dots = $('.dots', view); dots.style.cursor = 'pointer'; dots.onclick = backfillSheet; }
 }
 function bindJourney(root = view) { $$('[data-journey]', root).forEach(b => b.onclick = () => { goalTab = b.dataset.journey; go('goal'); }); }
 
