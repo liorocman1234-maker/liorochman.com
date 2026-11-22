@@ -10,7 +10,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&a
 const TZ = 'Asia/Jerusalem';
 
 // ---------- state ----------
-const S = { session: null, profile: null, settings: null, goal: null, season: null, seasons: [], mine: [], recordings: [], listens: {}, pulse: null, quotes: [], playing: null };
+const S = { session: null, profile: null, settings: null, goal: null, personal: null, groups: [], season: null, seasons: [], mine: [], recordings: [], listens: {}, pulse: null, quotes: [], playing: null };
 
 // ---------- time helpers (Israel) ----------
 function ilParts(d = new Date()) {
@@ -86,13 +86,23 @@ async function loadCore() {
   const uid = S.session.user.id;
   const [st, goals, mine, seasons, quotes] = await Promise.all([
     sb.from('settings').select('*').eq('id', 1).maybeSingle(),
-    sb.from('goals').select('*').eq('user_id', uid).eq('status', 'active').order('created_at', { ascending: false }).limit(1),
+    sb.from('goals').select('*').eq('user_id', uid).eq('status', 'active').order('created_at', { ascending: false }),
     sb.from('practices').select('day,mode,minutes,word,created_at').eq('user_id', uid).order('day', { ascending: false }).limit(1000),
-    sb.from('seasons').select('*').eq('active', true).order('start_date', { ascending: false }),
+    sb.from('seasons').select('*').order('start_date', { ascending: false }),
     sb.from('quotes').select('*').order('id')]);
-  S.settings = st.data || {}; S.goal = (goals.data || [])[0] || null; S.mine = mine.data || [];
+  if (goals.error) throw goals.error;
+  S.settings = st.data || {}; S.mine = mine.data || [];
   S.seasons = seasons.data || []; S.quotes = quotes.data || [];
-  S.season = S.goal && S.goal.season_id ? S.seasons.find(s => s.id === S.goal.season_id) || null : null;
+  setJourneys(goals.data || []);
+}
+const seasonOf = g => g && g.season_id ? S.seasons.find(x => x.id === g.season_id) || null : null;
+const seasonEnd = x => addDays(x.start_date, x.days); // exclusive
+const openSeasons = () => S.seasons.filter(x => x.active && seasonEnd(x) > today());
+function setJourneys(goals) {
+  S.personal = goals.find(g => !g.season_id) || null;
+  S.groups = goals.filter(g => { const x = seasonOf(g); return x && seasonEnd(x) > today(); });
+  S.goal = S.personal || S.groups[0] || null;
+  S.season = seasonOf(S.goal);
 }
 async function loadPulse() { const { data } = await sb.rpc('sangha_pulse'); S.pulse = data || { today: 0, members: 0, sitting: 0, words: [] }; }
 async function loadRecordings() {
@@ -102,7 +112,10 @@ async function loadRecordings() {
   S.recordings = r.data || []; S.listens = {}; (l.data || []).forEach(x => S.listens[x.recording_id] = x);
 }
 const practicedToday = () => S.mine.find(p => p.day === today());
-function goalDone() { if (!S.goal) return 0; return S.mine.filter(p => p.day >= S.goal.start_date).length; }
+function goalDone(g = S.goal) {
+  if (!g) return 0; const x = seasonOf(g), end = x ? seasonEnd(x) : '9999-12-31';
+  return S.mine.filter(p => p.day >= g.start_date && p.day < end).length;
+}
 function weeksStreak() {
   // consecutive weeks (Sun-Sat) where practice count >= per_week; current week counts if already met or still possible
   if (!S.goal) return 0; const per = S.goal.per_week; const set = new Set(S.mine.map(p => p.day));
@@ -141,13 +154,14 @@ async function markSitting(minutes) {
   await sb.from('sitting').upsert({ user_id: S.session.user.id, until: new Date(Date.now() + minutes * 6e4).toISOString() });
 }
 function checkGoalComplete() {
-  if (!S.goal) return; const done = goalDone();
-  if (done === S.goal.days_target) {
-    sb.from('goals').update({ status: 'done' }).eq('id', S.goal.id).then(() => {});
-    setTimeout(() => openSheet(`<div class="center stack"><div style="margin:0 auto;width:80px">${stageSvg(4)}</div><h2>השלמת את היעד</h2>
-      <p class="small">${S.goal.days_target} ימי תרגול. כל אחד מהם נשאר איתך.</p>
-      <button class="btn block" id="ng">להציב יעד חדש</button></div>`, p => $('#ng', p).onclick = () => { closeSheet(); S.goal = null; go('goal'); }), 600);
-  }
+  const g = [S.personal, ...S.groups].find(x => x && !x.completed && goalDone(x) >= x.days_target);
+  if (!g) return;
+  g.completed = true;
+  sb.from('goals').update({ status: 'done' }).eq('id', g.id).then(() => {});
+  setTimeout(() => openSheet(`<div class="center stack"><div style="margin:0 auto;width:80px">${stageSvg(4)}</div><h2>השלמת את המסע</h2>
+    <p class="small">${g.days_target} ימי תרגול. כל אחד מהם נשאר איתך.</p>
+    <button class="btn block" id="ng">לבחור מסע חדש</button></div>`, p => $('#ng', p).onclick = () => {
+      closeSheet(); setJourneys([S.personal, ...S.groups].filter(x => x && !x.completed)); go('goal'); }), 600);
 }
 
 // ---------- router ----------
@@ -274,44 +288,72 @@ function renderPending() {
 async function signOut() { await sb.auth.signOut(); S.session = null; S.profile = null; location.hash = ''; renderAuth('login'); }
 
 // ---------- GOAL ----------
+let goalTab = 'personal';
+function groupTarget(x) {
+  const start = x.start_date > today() ? x.start_date : today(), left = daysBetween(start, seasonEnd(x));
+  return { start, target: Math.max(1, Math.min(left, Math.round(left * x.per_week / 7))) };
+}
+function groupsHtml() {
+  const list = openSeasons();
+  if (!list.length) return `<div class="card soft"><h3>אין כרגע מסע קבוצתי פתוח</h3><p class="small">כשייפתח מסע לסנגהה, אפשר יהיה להצטרף אליו כאן. בינתיים אפשר לבחור מסע אישי.</p></div>`;
+  return list.map(x => { const joined = S.groups.find(g => g.season_id === x.id);
+    return `<div class="card gold"><h3>${esc(x.title)}</h3>
+      <span class="small">${x.start_date > today() ? 'מתחיל' : 'התחיל'} ב${heDate(x.start_date)} · ${x.days} ימים · ${x.per_week} פעמים בשבוע</span>
+      ${x.description ? `<p class="small" style="color:var(--ink-2)">${esc(x.description)}</p>` : ''}
+      <p class="small">${joined ? `${goalDone(joined)} מתוך ${joined.days_target} ימי תרגול` : `${groupTarget(x).target} ימי תרגול מרגע ההצטרפות`}</p>
+      ${joined ? `<div class="row"><span class="grow heard">✓ הצטרפת</span><button class="btn link" data-leave="${joined.id}">יציאה מהמסע</button></div>`
+               : `<button class="btn block" data-join="${x.id}">הצטרפות למסע</button>`}</div>`; }).join('');
+}
 VIEWS.goal = async function () {
-  const seasons = S.seasons.filter(s => daysBetween(s.start_date, today()) < s.days);
-  const pick = { days: 40, per: 5, min: 15, season: null };
-  view.innerHTML = `${header('ההתחייבות שלי', S.goal ? 'יעד חדש' : 'צעד ראשון')}
-  <p style="color:var(--ink-2)">מציבים יעד התמדה אישי. הוא שלך בלבד, ואפשר לשנות אותו בכל רגע.</p>
-  ${seasons.length ? `<div class="card gold"><span class="eyebrow">עונה של הסנגהה</span>${seasons.map(s => `
-    <div class="row"><div class="grow"><h3>${esc(s.title)}</h3><span class="small">${s.days} ימים · ${s.per_week} פעמים בשבוע · מתחילה ${heDate(s.start_date)}</span>${s.description ? `<p class="small">${esc(s.description)}</p>` : ''}</div>
-    <button class="btn small" data-season="${s.id}">מצטרף/ת</button></div>`).join('<div class="divider"></div>')}</div>
-    <p class="small center">או יעד אישי משלך</p>` : ''}
-  <div class="card"><h3>כמה ימי תרגול?</h3><div class="chips" id="g-days">${[21, 40, 66, 100].map(d => `<button class="chip" data-v="${d}" aria-pressed="${d === 40}">${d}</button>`).join('')}<button class="chip" data-v="x" aria-pressed="false">אחר</button></div>
-    <input type="number" id="g-days-x" min="3" max="1000" placeholder="מספר ימים" hidden></div>
-  <div class="card"><h3>באיזה קצב?</h3><div class="chips" id="g-per">${[3, 4, 5, 6, 7].map(d => `<button class="chip" data-v="${d}" aria-pressed="${d === 5}">${d === 7 ? 'כל יום' : d + ' בשבוע'}</button>`).join('')}</div>
-    <p class="small" id="g-grace"></p></div>
-  <div class="card"><h3>מינימום דקות</h3><div class="chips" id="g-min">${[3, 10, 15, 30, 60].map(d => `<button class="chip" data-v="${d}" aria-pressed="${d === 15}">${d}</button>`).join('')}</div>
-    <p class="small">גם 3 דקות של נשימה אחת נחשבות.</p></div>
-  <button class="btn block" id="g-save">זו ההתחייבות שלי</button>
+  const cur = S.personal, preset = [21, 40, 66, 100];
+  const pick = { days: cur ? cur.days_target : 40, per: cur ? cur.per_week : 5, min: cur ? cur.min_minutes : 15 };
+  const custom = !preset.includes(pick.days);
+  view.innerHTML = `${header('בוחרים מסע', S.goal ? 'המסעות שלי' : 'צעד ראשון')}
+  <p style="color:var(--ink-2)">אפשר לבחור מסע אישי, להצטרף למסע של הסנגהה, או גם וגם.</p>
+  <div class="chips" id="g-kind"><button class="chip" data-v="personal" aria-pressed="${goalTab === 'personal'}">המסע האישי שלי</button><button class="chip" data-v="group" aria-pressed="${goalTab === 'group'}">מסע קבוצתי</button></div>
+  <div class="stack" id="g-personal" ${goalTab === 'personal' ? '' : 'hidden'}>
+    <div class="card"><h3>כמה ימי תרגול?</h3><div class="chips" id="g-days">${preset.map(d => `<button class="chip" data-v="${d}" aria-pressed="${d === pick.days}">${d}</button>`).join('')}<button class="chip" data-v="x" aria-pressed="${custom}">מספר אישי</button></div>
+      <input type="number" id="g-days-x" min="3" max="1000" placeholder="כמה ימים מתאים לך?" value="${custom ? pick.days : ''}" ${custom ? '' : 'hidden'}></div>
+    <div class="card"><h3>באיזה קצב?</h3><div class="chips" id="g-per">${[3, 4, 5, 6, 7].map(d => `<button class="chip" data-v="${d}" aria-pressed="${d === pick.per}">${d === 7 ? 'כל יום' : d + ' בשבוע'}</button>`).join('')}</div>
+      <p class="small" id="g-grace"></p></div>
+    <div class="card"><h3>מינימום דקות</h3><div class="chips" id="g-min">${[3, 10, 15, 30, 60].map(d => `<button class="chip" data-v="${d}" aria-pressed="${d === pick.min}">${d}</button>`).join('')}</div>
+      <p class="small">גם 3 דקות של נשימה אחת נחשבות.</p></div>
+    <button class="btn block" id="g-save">${cur ? 'התחלת מסע אישי חדש' : 'זה המסע שלי'}</button>
+  </div>
+  <div class="stack" id="g-group" ${goalTab === 'group' ? '' : 'hidden'}>${groupsHtml()}</div>
   ${S.goal ? `<button class="btn link" data-go="journey">חזרה</button>` : ''}`;
   bindGo();
+  chipGroup($('#g-kind'), v => { goalTab = v; $('#g-personal').hidden = v !== 'personal'; $('#g-group').hidden = v !== 'group'; });
   const grace = () => $('#g-grace').textContent = pick.per === 7 ? 'בלי ימי מנוחה מתוכננים. גם יום שמפספסים לא מוחק כלום.' : `${7 - pick.per} ימי מנוחה בשבוע לא שוברים את הרצף.`;
   grace();
-  chipGroup($('#g-days'), v => { $('#g-days-x').hidden = v !== 'x'; if (v !== 'x') pick.days = +v; else $('#g-days-x').focus(); });
-  $('#g-days-x').oninput = e => pick.days = Math.max(3, Math.min(1000, +e.target.value || 0));
+  chipGroup($('#g-days'), v => { $('#g-days-x').hidden = v !== 'x'; if (v !== 'x') pick.days = +v; else { pick.days = +$('#g-days-x').value || 0; $('#g-days-x').focus(); } });
+  $('#g-days-x').oninput = e => pick.days = Math.min(1000, +e.target.value || 0);
   chipGroup($('#g-per'), v => { pick.per = +v; grace(); });
   chipGroup($('#g-min'), v => pick.min = +v);
-  const save = async (row) => {
+  const add = async (row, replace) => {
     const first = !S.goal && !S.mine.length;
-    if (S.goal) await sb.from('goals').update({ status: 'stopped' }).eq('id', S.goal.id);
-    const data = await guard(sb.from('goals').insert({ user_id: S.session.user.id, ...row }).select().single());
-    S.goal = data; S.season = row.season_id ? S.seasons.find(s => s.id === row.season_id) : null;
-    toast('ההתחייבות נשמרה 🌱'); go('home');
+    if (replace) await guard(sb.from('goals').update({ status: 'stopped' }).eq('id', replace.id));
+    const g = await guard(sb.from('goals').insert({ user_id: S.session.user.id, ...row }).select().single());
+    setJourneys([g, S.personal, ...S.groups].filter(x => x && x !== replace && !x.completed));
+    toast(g.season_id ? 'הצטרפת למסע של הסנגהה 🌱' : 'המסע האישי נשמר 🌱'); go(g.season_id && !first ? 'journey' : 'home');
     if (first) setTimeout(() => openSheet(`<div class="center stack"><div style="margin:0 auto;width:70px">${stageSvg(0)}</div><h2>ברוך/ה הבא/ה לסנגהה</h2>
       <p class="small" style="color:var(--ink-2)">רוצה להציג את עצמך? כמה מילים מספיקות. כולם יקבלו התראה ויוכלו לקבל אותך בברכה.</p>
       <button class="btn block" id="in-yes">כתיבת היכרות</button><button class="btn link" id="in-no">אחר כך</button></div>`, p => {
         $('#in-no', p).onclick = closeSheet; $('#in-yes', p).onclick = () => { closeSheet(); composeSheet('intro'); }; }), 900);
   };
-  $('#g-save').onclick = () => { if (!pick.days || pick.days < 3) return toast('בחרו מספר ימים'); save({ days_target: pick.days, per_week: pick.per, min_minutes: pick.min, start_date: today() }); };
-  $$('[data-season]').forEach(b => b.onclick = () => { const s = S.seasons.find(x => x.id === b.dataset.season);
-    save({ days_target: s.days, per_week: s.per_week, min_minutes: 15, season_id: s.id, start_date: s.start_date > today() ? s.start_date : today() }); });
+  $('#g-save').onclick = () => {
+    if (!Number.isInteger(pick.days) || pick.days < 3) return toast('בחרו מספר ימים, לפחות 3');
+    const start = () => add({ days_target: pick.days, per_week: pick.per, min_minutes: pick.min, start_date: today() }, cur);
+    cur ? confirmSheet('להתחיל מסע אישי חדש? הספירה שלו תתחיל מהיום, והזרע לא מתאפס.', start) : start();
+  };
+  $$('[data-join]').forEach(b => b.onclick = async () => {
+    b.disabled = true; const x = S.seasons.find(y => y.id === b.dataset.join), t = groupTarget(x);
+    try { await add({ days_target: t.target, per_week: x.per_week, min_minutes: S.personal ? S.personal.min_minutes : 15, season_id: x.id, start_date: t.start }); } catch (_) { b.disabled = false; }
+  });
+  $$('[data-leave]').forEach(b => b.onclick = () => confirmSheet('לצאת מהמסע הקבוצתי? ימי התרגול נשמרים.', async () => {
+    await guard(sb.from('goals').update({ status: 'stopped' }).eq('id', b.dataset.leave));
+    setJourneys([S.personal, ...S.groups].filter(g => g && g.id !== b.dataset.leave)); VIEWS.goal();
+  }));
 };
 
 // ---------- HOME ----------
@@ -323,7 +365,7 @@ VIEWS.home = async function () {
   view.innerHTML = `${header(`${greeting()}, ${(p.display_name || '').split(' ')[0]}`, heDate(today()))}
   ${welcomeBack() ? `<div class="banner"><h3>ברוך/ה השב/ה 🤍</h3><p class="small" style="color:var(--ink-2)">כל יום שתרגלת נשאר כאן. מתחילים מהיום, בלי חשבונות.</p></div>` : ''}
   <div class="hero"><div class="bgimg"></div>
-    <span class="eyebrow">${S.season ? esc(S.season.title) : 'ההתחייבות שלי'}</span>
+    <span class="eyebrow">${S.season ? esc(S.season.title) : 'המסע האישי שלי'}</span>
     <svg class="ring" viewBox="0 0 200 200" role="img" aria-label="${done} מתוך ${g.days_target}">
       <defs><clipPath id="seedclip"><circle cx="100" cy="100" r="74"/></clipPath></defs>
       <g class="seed-anim"><image href="icons/icon-512.png" x="26" y="26" width="148" height="148" clip-path="url(#seedclip)" preserveAspectRatio="xMidYMid slice"/></g>
@@ -335,6 +377,7 @@ VIEWS.home = async function () {
   </div>
 
   <div class="card" id="practice"></div>
+  ${S.groups.filter(x => x !== g).map(x => `<button class="card gold row" data-go="journey" style="flex-direction:row;cursor:pointer;text-align:right"><span class="grow"><span class="eyebrow">מסע קבוצתי</span><br>${esc(seasonOf(x).title)}</span><b class="num">${goalDone(x)} / ${x.days_target}</b></button>`).join('')}
 
   <div class="card"><div class="row"><div class="grow">
     <span class="eyebrow">${live && live.now ? 'עכשיו בזום' : 'התרגול המשותף הבא'}</span>
@@ -374,7 +417,7 @@ function practiceSheet(existing) {
     <div class="chips" id="ps-mode">${[['live', 'בזום'], ['recording', 'מהקלטה'], ['solo', 'לבד'], ['breath', 'נשימה אחת']].map(([k, t]) => `<button class="chip" data-v="${k}" aria-pressed="${k === v.mode}">${t}</button>`).join('')}</div>
     <label class="field">כמה דקות<input type="number" id="ps-min" min="1" max="300" value="${v.min}"></label>
     <label class="field">מילה אחת על התרגול (רשות, אנונימי)<input type="text" id="ps-word" maxlength="24" value="${esc((existing && existing.word) || '')}" placeholder="שקט, עייפות, הודיה…"></label>
-    <p class="small">המילה מצטרפת לענן המילים של הסנגהה, בלי שם.</p>
+    <p class="small">המילה מצטרפת לענן בלי שם. הענן מוצג רק כשיש לפחות 3 מילים.</p>
     <button class="btn block" id="ps-save">${existing ? 'עדכון' : 'נרשם 🌱'}</button>`, () => {
     chipGroup($('#ps-mode'), m => v.mode = m);
     $('#ps-save').onclick = async () => {
@@ -412,7 +455,7 @@ function breathing() {
     if (full) { bell(); if (!practicedToday()) { await logPractice('breath', 3, null); toast('נשימה אחת נרשמה כיום תרגול 🌱'); } }
     el.remove(); if (current === 'home') VIEWS.home();
   }
-  $('#bt-stop', el).onclick = () => finish(left <= 150);
+  $('#bt-stop', el).onclick = () => { finish(false); toast('נשימה אחת נרשמת בסוף 3 הדקות. אפשר לנסות שוב'); };
 }
 let actx;
 function bell() {
@@ -437,20 +480,24 @@ VIEWS.journey = async function () {
   const g = S.goal, done = goalDone(), total = S.mine.length, si = stageOf(total), next = STAGES[si + 1];
   const dots = Array.from({ length: g.days_target }, (_, i) => `<span class="dot ${i < done ? 'on' : ''}" title="${i + 1}"></span>`).join('');
   const half = Math.ceil(g.days_target / 2);
-  view.innerHTML = `${header('המסע שלי', S.season ? S.season.title : 'ההתחייבות שלי')}
+  view.innerHTML = `${header('המסע שלי', S.season ? S.season.title : 'המסע האישי שלי')}
   <div class="stats"><div class="stat"><b class="num">${done}</b><span class="small">מתוך ${g.days_target}</span></div>
     <div class="stat"><b class="num">${weeksStreak()}</b><span class="small">שבועות בקצב</span></div>
     <div class="stat"><b class="num">${total}</b><span class="small">ימי תרגול בסך הכל</span></div></div>
-  <div class="card"><div class="row"><h3 class="grow">${g.days_target} ימים · ${g.per_week === 7 ? 'כל יום' : g.per_week + ' בשבוע'} · ${g.min_minutes} דק׳</h3><button class="btn link" data-go="goal">שינוי</button></div>
+  <div class="card"><div class="row"><h3 class="grow">${g.days_target} ימים · ${g.per_week === 7 ? 'כל יום' : g.per_week + ' בשבוע'} · ${g.min_minutes} דק׳</h3><button class="btn link" data-journey="${S.personal ? 'personal' : 'group'}">שינוי</button></div>
     <div class="dots">${dots}</div>
     <span class="small">${done < half ? `האמצע ביום ${half}. שם המוטיבציה נוטה לרדת, וזה טבעי.` : done < g.days_target ? 'עברת את האמצע. מכאן זה נהיה שלך.' : 'השלמת את היעד 🌳'}</span></div>
+  ${S.groups.filter(x => x !== g).map(x => `<div class="card gold"><span class="eyebrow">מסע קבוצתי</span><div class="row"><h3 class="grow">${esc(seasonOf(x).title)}</h3><b class="num">${goalDone(x)} / ${x.days_target}</b></div><div class="progress"><i style="width:${Math.min(100, goalDone(x) / x.days_target * 100)}%"></i></div></div>`).join('')}
+  <div class="row wrap">${S.personal ? '' : '<button class="btn ghost grow" data-journey="personal">הוספת מסע אישי</button>'}<button class="btn ghost grow" data-journey="group">מסע קבוצתי</button></div>
   <div class="card"><span class="eyebrow">הזרע שלך</span>
     <div class="stages">${STAGES.map((s, i) => `<div class="${i <= si ? 'reached' : ''} ${i === si ? 'cur' : ''}">${stageSvg(i)}<span>${s.n}</span></div>`).join('')}</div>
     <p class="small">${next ? `עוד ${next.at - total} ימי תרגול עד ${next.n}. הצמיחה לא מתאפסת בין יעדים.` : 'עץ פורח. כל יום ממשיך להוסיף.'}</p></div>
   <div class="card soft"><h3>יום שפספסת לא מוחק כלום</h3><p class="small" style="line-height:1.7">כל יום שישבת נשאר כאן. ${g.per_week < 7 ? `${7 - g.per_week} ימי מנוחה בשבוע הם חלק מהתוכנית.` : ''} חמלה היא חלק מהתרגול.</p></div>
   ${S.mine.length ? `<div class="card"><span class="eyebrow">ימים אחרונים</span>${S.mine.slice(0, 7).map(p => `<div class="row"><span class="grow">${heDate(p.day)}</span><span class="small">${{ live: 'זום', recording: 'הקלטה', solo: 'לבד', breath: 'נשימה' }[p.mode]} · ${p.minutes} דק׳${p.word ? ' · ' + esc(p.word) : ''}</span></div>`).join('')}</div>` : ''}`;
-  bindGo();
+  bindGo(); bindJourney();
 };
+
+function bindJourney(root = view) { $$('[data-journey]', root).forEach(b => b.onclick = () => { goalTab = b.dataset.journey; go('goal'); }); }
 
 // ---------- LIBRARY ----------
 let libFilter = { topic: 'הכל', q: '' };
@@ -582,6 +629,7 @@ VIEWS.sangha = async function (quiet) {
     <button class="card soft row" id="mem-open" style="flex:1;flex-direction:row;padding:8px 12px;cursor:pointer;min-width:160px"><div class="faces">${faces}</div><span class="small grow">${S.members.length} בסנגהה · מי פה?</span></button></div>
   <button class="composer" id="compose"><span class="avatar" style="background:${esc(S.profile.color)}">${esc(initials(S.profile.display_name))}</span><span class="grow">שתפו תובנה, שאלה או רגע של הודיה…</span></button>
   <div class="composer-types">${[['insight', '✨'], ['question', '❓'], ['gratitude', '🙏'], ['temple', '🕯']].map(([k, i]) => `<button data-ck="${k}"><span>${i}</span>${KIND[k]}</button>`).join('')}</div>
+  ${openSeasons().filter(x => !S.groups.some(g => g.season_id === x.id)).map(x => `<div class="card gold"><span class="eyebrow">מסע קבוצתי לסנגהה</span><div class="row"><div class="grow"><h3>${esc(x.title)}</h3><span class="small">${x.days} ימים · ${x.per_week} פעמים בשבוע</span></div><button class="btn small" data-journey="group">לפרטים והצטרפות</button></div></div>`).join('')}
   ${pinned.map(p => postHtml(p, true)).join('')}
   ${(ev.data || []).map(e => { const d = new Date(e.starts_at);
     return `<div class="card"><span class="eyebrow">אירוע קרוב</span><div class="row"><div class="grow"><h3>${esc(e.title)}</h3>
@@ -596,7 +644,7 @@ VIEWS.sangha = async function (quiet) {
   chipGroup($('#fm'), v => { feedMode = v; VIEWS.sangha(true); });
   $('#compose').onclick = () => composeSheet();
   $$('[data-ck]').forEach(b => b.onclick = () => composeSheet(b.dataset.ck));
-  $('#mem-open').onclick = membersSheet;
+  $('#mem-open').onclick = membersSheet; bindJourney();
   clearInterval(sanghaTimer); sanghaTimer = setInterval(() => { if (current === 'sangha' && sheet.hidden && document.visibilityState === 'visible') VIEWS.sangha(true); else if (current !== 'sangha') clearInterval(sanghaTimer); }, 60000);
   $$('[data-rsvp]').forEach(b => b.onclick = async () => { const on = b.getAttribute('aria-pressed') !== 'true';
     if (on) await sb.from('rsvps').insert({ event_id: b.dataset.rsvp, user_id: S.session.user.id }); else await sb.from('rsvps').delete().eq('event_id', b.dataset.rsvp).eq('user_id', S.session.user.id);
@@ -621,11 +669,11 @@ async function threadSheet(postId) {
     $('#th').innerHTML = `${postHtml(post, false, true)}
       <span class="eyebrow">${cs.length ? `${cs.length} תגובות` : 'עוד אין תגובות'}</span>
       <div id="th-c">${cs.map(c => `<div class="comment"><span class="avatar" style="background:${c.anonymous ? 'var(--line)' : esc(c.color)}">${c.anonymous ? '·' : esc(initials(c.author))}</span>
-        <div class="grow"><div class="meta small"><b style="color:var(--ink)">${esc(c.anonymous ? 'חבר/ת סנגהה' : c.author)}</b>${c.is_staff ? ' <span class="kind">מנחה</span>' : ''} · ${ago(c.created_at)}${c.mine || isStaff() ? ` · <button class="btn link" style="font-size:12px" data-cdel="${c.id}">מחיקה</button>` : ''}</div><p>${esc(c.body)}</p></div></div>`).join('')}</div>
+        <div class="grow"><div class="meta small"><b style="color:var(--ink)">${esc(c.anonymous ? 'חבר/ת סנגהה' : c.author)}</b>${c.is_staff ? ' <span class="kind">מנחה</span>' : ''} · ${ago(c.created_at)}${c.mine || isStaff() ? ` · <button class="btn link" style="font-size:12px" data-cdel="${c.id}" data-own="${c.mine}">מחיקה</button>` : ''}</div><p>${esc(c.body)}</p></div></div>`).join('')}</div>
       <div class="reply-bar"><textarea id="th-r" placeholder="תגובה חמה…" aria-label="תגובה"></textarea><button class="btn" id="th-s">שליחה</button></div>
       <label class="check"><input type="checkbox" id="th-a"> בעילום שם</label>`;
     bindPosts($('#th')); loadPostImages($('#th'));
-    $$('[data-cdel]').forEach(b => b.onclick = async () => { await guard(sb.from('comments').delete().eq('id', b.dataset.cdel)); threadSheet(postId); });
+    $$('[data-cdel]').forEach(b => b.onclick = async () => { await guard(b.dataset.own === 'true' ? sb.from('comments').delete().eq('id', b.dataset.cdel) : sb.rpc('staff_delete_comment', { p_id: b.dataset.cdel })); threadSheet(postId); });
     $('#th-s').onclick = async () => { const body = $('#th-r').value.trim(); if (!body) return; const btn = $('#th-s'); btn.disabled = true;
       try { await guard(sb.from('comments').insert({ post_id: postId, user_id: S.session.user.id, body, anonymous: $('#th-a').checked })); threadSheet(postId); if (current === 'sangha') VIEWS.sangha(true); }
       catch (_) { btn.disabled = false; } };
@@ -655,7 +703,7 @@ function bindPosts(root = view) {
     const s = $('[data-save]', a); if (s) s.onclick = async () => { const on = s.getAttribute('aria-pressed') !== 'true'; s.setAttribute('aria-pressed', on); s.textContent = on ? 'נשמר' : 'שמירה';
       if (on) await sb.from('saves').insert({ post_id: id, user_id: S.session.user.id }); else await sb.from('saves').delete().eq('post_id', id).eq('user_id', S.session.user.id); };
     const d = $('[data-del]', a); if (d) d.onclick = () => confirmSheet(d.textContent === 'מחיקה' ? 'למחוק את השיתוף?' : 'להסתיר את השיתוף מכולם?', async () => {
-      if (d.textContent === 'מחיקה') await guard(sb.from('posts').delete().eq('id', id)); else await guard(sb.from('posts').update({ hidden: true }).eq('id', id)); a.remove(); });
+      if (d.textContent === 'מחיקה') await guard(sb.from('posts').delete().eq('id', id)); else await guard(sb.rpc('moderate_post', { p_id: id, p_hidden: true })); a.remove(); });
     const r = $('[data-report]', a); if (r) r.onclick = () => confirmSheet('לדווח על השיתוף למנחה?', async () => { await guard(sb.from('reports').insert({ post_id: id, user_id: S.session.user.id })); toast('תודה. המנחה תבדוק'); });
   });
 }
@@ -684,7 +732,7 @@ function composeSheet(kind, preset) {
       const btn = $('#cs'); btn.disabled = true;
       let image_path = null;
       try {
-        if (v.file) { const blob = await shrink(v.file); image_path = `${S.session.user.id}/${Date.now()}.jpg`;
+        if (v.file) { const blob = await shrink(v.file); image_path = `${crypto.randomUUID()}.jpg`;
           const { error } = await sb.storage.from('images').upload(image_path, blob, { contentType: 'image/jpeg' }); if (error) throw error; }
         await guard(sb.from('posts').insert({ user_id: S.session.user.id, kind: v.kind, body, anonymous: $('#ca').checked, image_path, pinned: !!($('#cp') && $('#cp').checked) }));
         closeSheet(); toast(v.kind === 'intro' ? 'ברוך/ה הבא/ה לסנגהה 🌱' : 'שותף 🤍'); feedMode = 'new'; if (current === 'sangha') VIEWS.sangha(true); else go('sangha');
@@ -710,7 +758,7 @@ VIEWS.me = async function () {
     <label class="field">קצת עליי (מופיע ב"מי בסנגהה")<textarea id="me-bio" maxlength="280" placeholder="מאיפה אני, ממתי מתרגל/ת, מה מביא אותי">${esc(p.bio || '')}</textarea></label>
     <span class="small">צבע</span><div class="chips" id="me-c">${colors.map(c => `<button class="chip" data-v="${c}" aria-pressed="${c === p.color}" style="width:38px;height:38px;padding:0;background:${c};border-color:${c === p.color ? 'var(--ink)' : 'transparent'}" aria-label="צבע"></button>`).join('')}</div>
     <button class="btn" id="me-save">שמירה</button></div>
-  <div class="card"><h3>תזכורת יומית</h3><p class="small">תזכורת אחת ביום לכל היותר, בשעה שתבחרו. ההתראות מגיעות לאייפון רק כשהאפליקציה מותקנת על מסך הבית.</p>
+  <div class="card"><h3>תזכורת יומית</h3><p class="small">התזכורות עדיין לא פעילות. אפשר לשמור כבר עכשיו את השעה הרצויה.</p>
     <label class="field">שעה<input type="time" id="me-rem" value="${p.reminder_time ? String(p.reminder_time).slice(0, 5) : ''}"></label>
     <button class="btn ghost" id="me-rem-save">שמירת שעה</button></div>
   <div class="card"><h3>התקנה על מסך הבית</h3><p class="small" style="line-height:1.7">באייפון: בספארי לוחצים על כפתור השיתוף <b>⎋</b>, גוללים ובוחרים <b>"הוסף למסך הבית"</b>, ואז <b>"הוסף"</b>. האפליקציה תיפתח במסך מלא כמו כל אפליקציה.</p></div>
@@ -727,7 +775,7 @@ VIEWS.me = async function () {
 // ---------- ADMIN (facilitator) ----------
 VIEWS.admin = async function () {
   view.innerHTML = `<div class="row"><button class="btn link" data-go="home">→ חזרה</button></div><h1>ניהול</h1>
-  <div class="chips scroll" id="ad-t">${[['rec', 'הקלטה'], ['post', 'הודעה'], ['ev', 'אירוע'], ['q', 'שאלות'], ['season', 'עונה'], ['quote', 'משפט'], ['rep', 'דיווחים'], ['set', 'הגדרות'], ['mem', 'חברים']].map(([k, t], i) => `<button class="chip" data-v="${k}" aria-pressed="${i === 0}">${t}</button>`).join('')}</div>
+  <div class="chips scroll" id="ad-t">${[['rec', 'הקלטה'], ['post', 'הודעה'], ['ev', 'אירוע'], ['q', 'שאלות'], ['season', 'מסע קבוצתי'], ['quote', 'משפט'], ['rep', 'דיווחים'], ['set', 'הגדרות'], ['mem', 'חברים']].map(([k, t], i) => `<button class="chip" data-v="${k}" aria-pressed="${i === 0}">${t}</button>`).join('')}</div>
   <div id="ad-body" class="stack"></div>`;
   bindGo(); chipGroup($('#ad-t'), adminTab); adminTab('rec');
 };
@@ -741,11 +789,12 @@ async function adminTab(t) {
       <label class="field">מנחה<input type="text" id="r-guide" value="${esc((S.settings && S.settings.facilitator_name) || 'עדי')}"></label>
       <label class="field">תאריך<input type="date" id="r-date" value="${today()}"></label>
       <label class="field">מה תרגלנו (2-3 שורות)<textarea id="r-sum"></textarea></label>
-      <label class="field">קובץ אודיו (mp3 / m4a)<input type="file" id="r-file" accept="audio/*"></label>
+      <label class="field">קובץ אודיו (mp3 / m4a, עד 50MB)<input type="file" id="r-file" accept="audio/*"></label>
       <div class="progress" id="r-prog" hidden><i></i></div>
       <button class="btn block" id="r-save">העלאה</button></div>`;
     $('#r-save').onclick = async () => {
       const title = $('#r-title').value.trim(); if (!title) return toast('צריך כותרת'); const f = $('#r-file').files[0];
+      if (f && f.size > 50 * 1024 * 1024) return toast('הקובץ מעל 50MB. צריך לכווץ אותו לפני ההעלאה');
       const btn = $('#r-save'); btn.disabled = true; let audio_path = null;
       try {
         if (f) { $('#r-prog').hidden = false; $('#r-prog i').style.width = '30%'; const ext = (f.name.split('.').pop() || 'mp3').toLowerCase();
@@ -759,9 +808,9 @@ async function adminTab(t) {
     b.innerHTML = `<div class="card"><h3>הודעה מוצמדת לסנגהה</h3><textarea id="an"></textarea><button class="btn block" id="an-s">פרסום והצמדה</button></div><div id="pins"></div>`;
     $('#an-s').onclick = async () => { const body = $('#an').value.trim(); if (!body) return;
       await guard(sb.from('posts').insert({ user_id: uid, kind: 'announcement', body, pinned: true })); toast('פורסם'); adminTab('post'); };
-    const { data } = await sb.from('posts').select('id,body,created_at').eq('pinned', true).eq('hidden', false).order('created_at', { ascending: false });
+    const data = ((await guard(sb.rpc('staff_posts'))) || []).filter(p => p.pinned && !p.hidden);
     $('#pins').innerHTML = (data || []).map(p => `<div class="card soft"><p class="small">${esc(p.body.slice(0, 140))}</p><button class="btn link" data-unpin="${p.id}">הסרת הצמדה</button></div>`).join('');
-    $$('[data-unpin]').forEach(x => x.onclick = async () => { await sb.from('posts').update({ pinned: false }).eq('id', x.dataset.unpin); adminTab('post'); });
+    $$('[data-unpin]').forEach(x => x.onclick = async () => { await guard(sb.rpc('moderate_post', { p_id: x.dataset.unpin, p_pinned: false })); adminTab('post'); });
   } else if (t === 'ev') {
     b.innerHTML = `<div class="card"><h3>אירוע חדש</h3><label class="field">שם<input type="text" id="e-t"></label>
       <label class="field">מתי<input type="datetime-local" id="e-d"></label><label class="field">משך בדקות<input type="number" id="e-m" value="90"></label>
@@ -771,32 +820,30 @@ async function adminTab(t) {
       const iso = ilLocalToIso(d);
       await guard(sb.from('events').insert({ title: $('#e-t').value.trim(), starts_at: iso, duration_min: +$('#e-m').value || 60, url: $('#e-u').value.trim() || null, description: $('#e-x').value.trim() })); toast('האירוע נוסף'); adminTab('ev'); };
   } else if (t === 'q') {
-    const { data } = await sb.from('questions').select('*').order('created_at', { ascending: false }).limit(60);
-    b.innerHTML = (data || []).length ? data.map(q => `<div class="card" data-q="${q.id}"><p>${esc(q.body)}</p><span class="small">${q.anonymous ? 'בעילום שם' : ''} · ${ago(q.created_at)}</span>
+    const data = await guard(sb.rpc('staff_questions'));
+    b.innerHTML = (data || []).length ? data.map(q => `<div class="card" data-q="${q.id}"><p>${esc(q.body)}</p><span class="small">${q.anonymous ? 'בעילום שם' : esc(q.author)} · ${ago(q.created_at)}</span>
       <textarea placeholder="תשובה">${esc(q.answer || '')}</textarea><div class="row"><input type="text" value="${esc(q.topic || 'כללי')}" aria-label="נושא" style="width:130px">
       <label class="check grow"><input type="checkbox" ${q.published ? 'checked' : ''}> לפרסם לכולם</label><button class="btn small">שמירה</button></div></div>`).join('') : '<div class="card soft"><p class="small">אין שאלות כרגע.</p></div>';
     $$('[data-q]').forEach(c => $('button', c).onclick = async () => {
-      await guard(sb.from('questions').update({ answer: $('textarea', c).value.trim() || null, topic: $('input[type=text]', c).value.trim() || 'כללי', published: $('input[type=checkbox]', c).checked, answered_at: new Date().toISOString() }).eq('id', c.dataset.q)); toast('נשמר'); });
+      await guard(sb.rpc('answer_question', { p_id: c.dataset.q, p_answer: $('textarea', c).value, p_topic: $('input[type=text]', c).value, p_published: $('input[type=checkbox]', c).checked })); toast('נשמר'); });
   } else if (t === 'season') {
     const { data } = await sb.from('seasons').select('*').order('start_date', { ascending: false });
-    b.innerHTML = `<div class="card"><h3>עונה חדשה</h3><p class="small">תקופת תרגול משותפת. מי שמצטרף מקבל אותה כיעד.</p>
+    b.innerHTML = `<div class="card"><h3>מסע קבוצתי חדש</h3><p class="small">מסע משותף לסנגהה. כל אחד בוחר אם להצטרף, והמסע האישי שלו נשאר.</p>
       <label class="field">שם<input type="text" id="s-t" placeholder="חורף · קונדליני"></label><label class="field">תיאור<textarea id="s-x"></textarea></label>
-      <div class="row"><label class="field grow">התחלה<input type="date" id="s-d" value="${today()}"></label><label class="field" style="width:90px">ימים<input type="number" id="s-n" value="42"></label><label class="field" style="width:90px">בשבוע<input type="number" id="s-w" value="5" min="1" max="7"></label></div>
+      <div class="row"><label class="field grow">התחלה<input type="date" id="s-d" value="${today()}"></label><label class="field" style="width:70px">ימים<input type="number" id="s-n" value="42"></label><label class="field" style="width:70px">בשבוע<input type="number" id="s-w" value="5" min="1" max="7"></label></div>
       <button class="btn block" id="s-s">יצירה</button></div>
       ${(data || []).map(s => `<div class="card soft"><div class="row"><div class="grow"><b>${esc(s.title)}</b><div class="small">${heDate(s.start_date)} · ${s.days} ימים · ${s.active ? 'פעילה' : 'סגורה'}</div></div><button class="btn link" data-sx="${s.id}" data-a="${s.active}">${s.active ? 'סגירה' : 'פתיחה'}</button></div></div>`).join('')}`;
     $('#s-s').onclick = async () => { if (!$('#s-t').value.trim()) return toast('צריך שם');
-      await guard(sb.from('seasons').insert({ title: $('#s-t').value.trim(), description: $('#s-x').value.trim(), start_date: $('#s-d').value, days: +$('#s-n').value || 42, per_week: Math.min(7, Math.max(1, +$('#s-w').value || 5)) })); toast('העונה נפתחה'); adminTab('season'); };
+      await guard(sb.from('seasons').insert({ title: $('#s-t').value.trim(), description: $('#s-x').value.trim(), start_date: $('#s-d').value, days: +$('#s-n').value || 42, per_week: Math.min(7, Math.max(1, +$('#s-w').value || 5)) })); toast('המסע הקבוצתי נפתח'); adminTab('season'); };
     $$('[data-sx]').forEach(x => x.onclick = async () => { await sb.from('seasons').update({ active: x.dataset.a !== 'true' }).eq('id', x.dataset.sx); adminTab('season'); });
   } else if (t === 'quote') {
     b.innerHTML = `<div class="card"><h3>משפט עוגן חדש</h3><textarea id="qt"></textarea><label class="field">מקור<input type="text" id="qs"></label><button class="btn block" id="qq">הוספה</button>
       <p class="small">יש ${S.quotes.length} משפטים במאגר. כל יום מוצג אחד, לפי הסדר.</p></div>`;
     $('#qq').onclick = async () => { if (!$('#qt').value.trim()) return; const d = await guard(sb.from('quotes').insert({ text: $('#qt').value.trim(), source: $('#qs').value.trim() }).select().single()); S.quotes.push(d); toast('נוסף'); adminTab('quote'); };
   } else if (t === 'rep') {
-    const { data } = await sb.from('reports').select('id,post_id,created_at').order('created_at', { ascending: false }).limit(40);
-    const ids = [...new Set((data || []).map(r => r.post_id))];
-    const { data: posts } = ids.length ? await sb.from('posts').select('id,body,hidden').in('id', ids) : { data: [] };
+    const posts = ((await guard(sb.rpc('staff_posts'))) || []).filter(p => p.reported);
     b.innerHTML = (posts || []).length ? posts.map(p => `<div class="card"><p class="small">${esc(p.body.slice(0, 220))}</p><div class="row"><span class="grow small">${p.hidden ? 'מוסתר' : 'גלוי'}</span><button class="btn small" data-hide="${p.id}" data-h="${p.hidden}">${p.hidden ? 'החזרה' : 'הסתרה'}</button></div></div>`).join('') : '<div class="card soft"><p class="small">אין דיווחים.</p></div>';
-    $$('[data-hide]').forEach(x => x.onclick = async () => { await sb.from('posts').update({ hidden: x.dataset.h !== 'true' }).eq('id', x.dataset.hide); adminTab('rep'); });
+    $$('[data-hide]').forEach(x => x.onclick = async () => { await guard(sb.rpc('moderate_post', { p_id: x.dataset.hide, p_hidden: x.dataset.h !== 'true' })); adminTab('rep'); });
   } else if (t === 'set') {
     const st = S.settings || {};
     b.innerHTML = `<div class="card"><h3>התרגול המשותף</h3><label class="field">קישור זום קבוע<input type="url" id="z-u" dir="ltr" value="${esc(st.zoom_url || '')}"></label>
@@ -809,10 +856,10 @@ async function adminTab(t) {
       live_days: $$('#z-d .chip').filter(c => c.getAttribute('aria-pressed') === 'true').map(c => +c.dataset.v) };
       await guard(sb.from('settings').update(row).eq('id', 1)); S.settings = { ...st, ...row }; toast('נשמר'); };
   } else if (t === 'mem') {
-    const { data } = await sb.from('profiles').select('id,display_name,role,created_at').order('created_at');
+    const data = await guard(sb.rpc('admin_profiles'));
     const admin = S.profile.role === 'admin';
     b.innerHTML = `<div class="card"><span class="small">${(data || []).filter(x => x.role !== 'pending').length} חברים</span><div class="tablewrap"><table class="admin">${(data || []).map(m => `<tr><td>${esc(m.display_name || '·')}</td><td>${admin && m.id !== uid ? `<select data-role="${m.id}">${['pending', 'member', 'facilitator', 'admin'].map(r => `<option value="${r}" ${r === m.role ? 'selected' : ''}>${{ pending: 'ממתין', member: 'חבר', facilitator: 'מנחה', admin: 'מנהל' }[r]}</option>`).join('')}</select>` : { pending: 'ממתין', member: 'חבר', facilitator: 'מנחה', admin: 'מנהל' }[m.role]}</td></tr>`).join('')}</table></div></div>`;
-    $$('[data-role]').forEach(s => s.onchange = async () => { await guard(sb.from('profiles').update({ role: s.value }).eq('id', s.dataset.role)); toast('עודכן'); });
+    $$('[data-role]').forEach(s => s.onchange = async () => { await guard(sb.rpc('set_member_role', { p_id: s.dataset.role, p_role: s.value })); toast('עודכן'); });
   }
 }
 function ilLocalToIso(local) {
