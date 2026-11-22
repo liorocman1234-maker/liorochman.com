@@ -434,8 +434,8 @@ VIEWS.home = async function () {
     ${st.zoom_url ? `<a class="btn ${live && live.now ? '' : 'ghost'}" id="zoom" href="${esc(st.zoom_url)}" target="_blank" rel="noopener">הצטרפות</a>` : ''}</div></div>
 
   ${lastRec ? `<div class="card"><span class="eyebrow">ההקלטה האחרונה</span><div class="row">
-    <button class="play" data-rec="${lastRec.id}" aria-label="נגן">▶</button>
-    <div class="grow"><b>${esc(lastRec.title)}</b><div class="small">${lastRec.duration_min ? lastRec.duration_min + ' דק׳ · ' : ''}${esc(lastRec.guide)}</div></div></div></div>` : ''}
+    ${recButton(lastRec)}
+    <div class="grow"><b>${esc(lastRec.title)}</b><div class="small">${lastRec.duration_min ? lastRec.duration_min + ' דק׳ · ' : ''}${esc(lastRec.guide)}</div>${recOpen(lastRec)}</div></div></div>` : ''}
 
   <div class="card" id="pulse"><span class="eyebrow">היום בסנגהה</span><p class="small">טוען…</p></div>
 
@@ -760,9 +760,10 @@ VIEWS.library = async function () {
   const { data: faq } = await sb.rpc('faq');
   if (current !== 'library' || libTab !== 'rec') return;
   const topics = ['הכל', ...new Set(S.recordings.map(r => r.topic))];
-  const heard = S.recordings.filter(r => S.listens[r.id] && S.listens[r.id].completed).length;
+  const inApp = S.recordings.filter(r => !recLink(r));
+  const heard = inApp.filter(r => S.listens[r.id] && S.listens[r.id].completed).length;
   view.innerHTML = `${header('ספרייה')}${libTabs()}
-  ${S.recordings.length ? `<div class="card"><div class="row"><span class="grow">הקשבת ל־<b class="num">${heard}</b> מתוך <b class="num">${S.recordings.length}</b> הקלטות</span></div><div class="progress"><i style="width:${S.recordings.length ? heard / S.recordings.length * 100 : 0}%"></i></div></div>` : ''}
+  ${inApp.length ? `<div class="card"><div class="row"><span class="grow">הקשבת ל־<b class="num">${heard}</b> מתוך <b class="num">${inApp.length}</b> הקלטות</span></div><div class="progress"><i style="width:${heard / inApp.length * 100}%"></i></div></div>` : ''}
   <input type="text" id="lib-q" placeholder="חיפוש לפי נושא, מנחה או מילה" value="${esc(libFilter.q)}" aria-label="חיפוש">
   <div class="chips scroll" id="lib-t">${topics.map(t => `<button class="chip" data-v="${esc(t)}" aria-pressed="${t === libFilter.topic}">${esc(t)}</button>`).join('')}</div>
   <div class="card" style="gap:0" id="lib-list"></div>
@@ -775,11 +776,12 @@ VIEWS.library = async function () {
   const paint = () => {
     const q = libFilter.q.trim(); const list = S.recordings.filter(r => (libFilter.topic === 'הכל' || r.topic === libFilter.topic) && (!q || (r.title + r.topic + r.guide + (r.summary || '')).includes(q)));
     $('#lib-list').innerHTML = list.length ? list.map(r => { const L = S.listens[r.id];
-      return `<div class="track"><button class="play ${S.playing && S.playing.id === r.id ? 'on' : ''}" data-rec="${r.id}" aria-label="נגן">${S.playing && S.playing.id === r.id ? '❚❚' : '▶'}</button>
+      return `<div class="track">${recButton(r)}
       <div class="grow"><b>${esc(r.title)}</b><div class="small">${r.duration_min ? r.duration_min + ' דק׳ · ' : ''}${esc(r.guide)} · <span class="tag">${esc(r.topic)}</span> ${L && L.completed ? '<span class="heard">✓ הקשבתי</span>' : L && L.position_sec > 30 ? `<span class="small">הגעת ל־${Math.round(L.position_sec / 60)} דק׳</span>` : ''}</div>
-      ${r.summary ? `<details><summary class="small" style="cursor:pointer">מה תרגלנו</summary><p class="small" style="color:var(--ink-2);white-space:pre-wrap">${esc(r.summary)}</p></details>` : ''}</div></div>`; }).join('')
+      ${recOpen(r)}${r.summary ? `<details><summary class="small" style="cursor:pointer">מה תרגלנו</summary><p class="small" style="color:var(--ink-2);white-space:pre-wrap">${esc(r.summary)}</p></details>` : ''}</div></div>`; }).join('')
       : `<p class="small" style="padding:12px 0">${S.recordings.length ? 'לא נמצאו הקלטות' : 'ההקלטות יעלו לכאן בקרוב.'}</p>`;
     $$('[data-rec]', $('#lib-list')).forEach(b => b.onclick = () => playRecording(b.dataset.rec));
+    refreshPlayButtons();
   };
   paint();
   $('#lib-q').oninput = e => { libFilter.q = e.target.value; paint(); };
@@ -1039,7 +1041,26 @@ function audioProblem(f, required) {
   if (!f.size) return 'הקובץ ריק. בחרו קובץ אחר';
   return f.size > MAX_AUDIO ? 'הקובץ מעל 50MB. צריך לכווץ אותו לפני ההעלאה' : '';
 }
-const isStored = p => !!p && !/^https?:/.test(p);
+const isStored = p => !!p && !/^https?:/i.test(p);
+// A recording is either a file in storage or a link that opens outside the app (Drive / Zoom).
+const recLink = r => safeUrl(r && r.audio_path);
+function linkPlace(u) {
+  try { const h = new URL(u).hostname; return /(^|\.)(drive|docs)\.google\.com$/.test(h) ? 'בדרייב' : /(^|\.)zoom\.(us|com)$/.test(h) ? 'בזום' : 'בקישור'; }
+  catch (_) { return 'בקישור'; }
+}
+function readLink(v) {
+  let u = v.trim(); if (!u) return { url: '' };
+  if (/\s/.test(u)) return { bad: 'בשדה הקישור מדביקים רק את הכתובת, בלי טקסט וקוד' };
+  if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+  let p; try { p = new URL(u); } catch (_) { return { bad: 'הקישור לא תקין' }; }
+  if (!/^https?:$/.test(p.protocol) || !/^[^.]+(\.[^.]+)+$/.test(p.hostname)) return { bad: 'הקישור לא תקין' };
+  if (/(^|\.)drive\.google\.com$/.test(p.hostname) && (/\/folders(\/|$)/.test(p.pathname) || p.pathname.includes('/folderview'))) return { bad: 'זה קישור לתיקייה. צריך קישור של הקלטה אחת' };
+  return { url: u };
+}
+const recButton = r => { const u = recLink(r); return u
+  ? `<a class="play" style="text-decoration:none" href="${esc(u)}" target="_blank" rel="noopener noreferrer" aria-label="פתיחה ${linkPlace(u)}">↗</a>`
+  : `<button class="play" data-rec="${r.id}" aria-label="נגן">▶</button>`; };
+const recOpen = r => { const u = recLink(r); return u ? `<div><a class="small" style="color:var(--gold);font-weight:600" href="${esc(u)}" target="_blank" rel="noopener noreferrer">פתיחה ${linkPlace(u)}</a></div>` : ''; };
 async function uploadAudio(f, date) {
   const ext = ((f.name.match(/\.([a-z0-9]{1,5})$/i) || [])[1] || 'mp3').toLowerCase(), path = `${date}-${Date.now()}.${ext}`;
   const { error } = await sb.storage.from('audio').upload(path, f, { contentType: f.type || 'audio/mpeg' });
@@ -1071,10 +1092,11 @@ function bindManage(el, rows, edit, del) {
 async function recordingList() {
   const el = $('#r-list'); if (!el) return;
   const { data, error } = await sb.from('recordings').select('*').order('recorded_on', { ascending: false }).order('created_at', { ascending: false });
+  if (!error) S.recordings = data; // keeps the home card fresh after a save
   if (!el.isConnected) return;
   if (error) { el.innerHTML = '<p class="small">לא הצלחנו לטעון את ההקלטות.</p>'; return; }
   el.innerHTML = data.length ? '<h3>הקלטות קיימות</h3>' + data.map(r => manageRow(r.id, r.title,
-    `${r.recorded_on ? heDate(r.recorded_on) : ''}${r.audio_path ? '' : ' · <b>חסר קובץ</b>'}`)).join('') : '';
+    `${r.recorded_on ? heDate(r.recorded_on) : ''}${recLink(r) ? ' · קישור ' + linkPlace(recLink(r)) : r.audio_path ? '' : ' · <b>חסר קובץ או קישור</b>'}`)).join('') : '';
   bindManage(el, data, recordingSheet, deleteRecording);
 }
 function recordingSheet(r) {
@@ -1084,18 +1106,29 @@ function recordingSheet(r) {
     <label class="field">מנחה<input type="text" id="er-guide" value="${esc(r.guide)}"></label>
     <label class="field">תאריך<input type="date" id="er-date" value="${esc(r.recorded_on)}"></label>
     <label class="field">מה תרגלנו (2-3 שורות)<textarea id="er-sum">${esc(r.summary)}</textarea></label>
-    <label class="field">${r.audio_path ? 'החלפת הקובץ (רשות)' : 'קובץ אודיו (חסר)'}<input type="file" id="er-file" accept="audio/*"></label>
+    <label class="field">קישור להקלטה (דרייב / זום)<input type="url" id="er-url" dir="ltr" value="${esc(recLink(r))}" placeholder="https://"></label>
+    ${isStored(r.audio_path) ? '<p class="small">אם שומרים קישור במקום הקובץ, הקובץ הקודם יימחק.</p>' : ''}
+    <label class="field">${isStored(r.audio_path) ? 'החלפת הקובץ (רשות)' : 'או קובץ אודיו'}<input type="file" id="er-file" accept="audio/*"></label>
     <button class="btn block" id="er-save">שמירה</button>`, () => {
     $('#er-save').onclick = async () => {
       const title = $('#er-title').value.trim(), f = $('#er-file').files[0], date = $('#er-date').value;
       if (!title) return toast('צריך כותרת');
       if (!date) return toast('צריך תאריך');
-      const bad = audioProblem(f, !r.audio_path); if (bad) return toast(bad);
+      const typed = $('#er-url').value.trim(), before = recLink(r);
+      let newLink = '';
+      if (typed !== before) {
+        const link = readLink(typed); if (link.bad) return toast(link.bad);
+        newLink = link.url;
+        if (f && newLink) return toast('בחרו קישור או קובץ, לא את שניהם');
+      }
+      if (!f && !newLink && !(isStored(r.audio_path) || (before && typed))) return toast('צריך קישור להקלטה או קובץ');
+      const bad = audioProblem(f, false); if (bad) return toast(bad);
       const row = { title, topic: $('#er-topic').value.trim() || 'כללי', guide: $('#er-guide').value.trim() || 'עדי', duration_min: +$('#er-dur').value || null, recorded_on: date, summary: $('#er-sum').value.trim() };
       const btn = $('#er-save'); btn.disabled = true; btn.textContent = 'שומר…';
       let path = null;
       try {
         if (f) { path = await uploadAudio(f, date); row.audio_path = path; }
+        else if (newLink) row.audio_path = newLink;
         await changeOne(sb.from('recordings').update(row).eq('id', r.id));
       } catch (e) {
         console.error(e); btn.disabled = false; btn.textContent = 'שמירה'; toast('השמירה לא הצליחה. נסו שוב');
@@ -1103,7 +1136,7 @@ function recordingSheet(r) {
         return;
       }
       closeSheet(); toast('ההקלטה עודכנה'); S.recordings = [];
-      if (path) { stopIfPlaying(r.id); if (isStored(r.audio_path)) await dropUnusedAudio(r.audio_path); }
+      if (path || newLink) { stopIfPlaying(r.id); if (isStored(r.audio_path)) await dropUnusedAudio(r.audio_path); }
       recordingList();
     };
   });
@@ -1172,25 +1205,31 @@ async function adminTab(t) {
       <label class="field">מנחה<input type="text" id="r-guide" value="${esc((S.settings && S.settings.facilitator_name) || 'עדי')}"></label>
       <label class="field">תאריך<input type="date" id="r-date" value="${today()}"></label>
       <label class="field">מה תרגלנו (2-3 שורות)<textarea id="r-sum"></textarea></label>
+      <label class="field">קישור להקלטה (דרייב / זום)<input type="url" id="r-url" dir="ltr" placeholder="https://"></label>
+      <p class="small">מדביקים קישור של הקלטה אחת, או בוחרים קובץ במקום.</p>
       <label class="field">קובץ אודיו (mp3 / m4a, עד 50MB)<input type="file" id="r-file" accept="audio/*"></label>
       <div class="progress" id="r-prog" hidden><i></i></div>
-      <button class="btn block" id="r-save">העלאה</button></div><div class="stack" id="r-list"></div>`;
+      <button class="btn block" id="r-save">שמירת ההקלטה</button></div><div class="stack" id="r-list"></div>`;
     $('#r-save').onclick = async () => {
       const title = $('#r-title').value.trim(); if (!title) return toast('צריך כותרת');
-      const f = $('#r-file').files[0], bad = audioProblem(f, true); if (bad) return toast(bad);
+      const f = $('#r-file').files[0], link = readLink($('#r-url').value);
+      if (link.bad) return toast(link.bad);
+      if (f && link.url) return toast('בחרו קישור או קובץ, לא את שניהם');
+      if (!f && !link.url) return toast('צריך קישור להקלטה או קובץ');
+      const bad = audioProblem(f, false); if (bad) return toast(bad);
       const date = $('#r-date').value; if (!date) return toast('צריך תאריך');
       const btn = $('#r-save'); btn.disabled = true; let audio_path = null;
       try {
         $('#r-prog').hidden = false; $('#r-prog i').style.width = '30%';
         const row = { title, topic: $('#r-topic').value.trim() || 'כללי', guide: $('#r-guide').value.trim() || 'עדי', duration_min: +$('#r-dur').value || null, recorded_on: date, summary: $('#r-sum').value.trim() };
-        audio_path = await uploadAudio(f, date);
+        audio_path = f ? await uploadAudio(f, date) : link.url;
         await guard(sb.from('recordings').insert({ ...row, audio_path }));
-        toast('ההקלטה עלתה'); S.recordings = [];
+        toast('ההקלטה נשמרה'); S.recordings = [];
         if (btn.isConnected) adminTab('rec');
       } catch (e) {
-        console.error(e); btn.disabled = false; toast('ההעלאה לא הצליחה. נסו שוב');
+        console.error(e); btn.disabled = false; toast('השמירה לא הצליחה. נסו שוב');
         const bar = $('#r-prog'); if (bar) bar.hidden = true;
-        if (audio_path) await dropUnusedAudio(audio_path);
+        if (f && audio_path) await dropUnusedAudio(audio_path);
       }
     };
     recordingList();
