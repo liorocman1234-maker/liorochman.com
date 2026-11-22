@@ -168,3 +168,10 @@ table.admin td{padding:8px 4px;border-bottom:1px solid var(--line);vertical-alig
 .tablewrap{overflow-x:auto}
 
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* v5: challenge + reading corner */
+.dot.passed{background:rgba(230,192,104,.24);border-color:transparent}
+.dot.now{outline:2px solid var(--gold-soft);outline-offset:2px}
+.reading-body{white-space:pre-wrap;overflow-wrap:anywhere;margin:0;line-height:1.8;color:var(--ink-2)}
+.reading-more summary{cursor:pointer;color:var(--gold);font-size:14px;padding:6px 0}
+article[data-reading] h3{overflow-wrap:anywhere}

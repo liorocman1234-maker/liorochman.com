@@ -95,14 +95,50 @@ async function loadCore() {
   S.seasons = seasons.data || []; S.quotes = quotes.data || [];
   setJourneys(goals.data || []);
 }
+// ---------- current group challenge (Sunday to Thursday) ----------
+const isChDay = iso => new Date(iso + 'T12:00:00Z').getUTCDay() < 5;
+function challengeDates() {
+  const st = S.settings || {}, n = st.challenge_days, out = [];
+  if (!st.challenge_start || !(n > 0)) return out;
+  for (let d = st.challenge_start; out.length < n; d = addDays(d, 1)) if (isChDay(d)) out.push(d);
+  return out;
+}
+function challengeNow() {
+  const dates = challengeDates(), t = today(), end = dates[dates.length - 1];
+  if (!dates.length || t < dates[0] || t > end) return null;
+  return { challenge: true, title: S.settings.challenge_title || 'האתגר של הסנגהה', dates, end, start_date: dates[0],
+    day: dates.filter(d => d <= t).length, rest: !isChDay(t), last: t === end, days_target: dates.length, per_week: 5, min_minutes: 10 };
+}
+function challengeJustEnded() {
+  const end = challengeDates().pop();
+  return !!end && end < today() && daysBetween(end, today()) <= 21;
+}
+// During the challenge it is everybody's journey. When it ends, the personal / group flow takes over by itself.
+function syncChallenge() {
+  S.challenge = challengeNow();
+  S.goal = S.challenge || S.personal || S.groups[0] || null;
+  S.season = seasonOf(S.goal);
+}
+const canPickJourney = () => !S.challenge || S.challenge.last;
+const otherJourneys = () => [S.personal, ...S.groups].filter(x => x && x !== S.goal);
+const journeyName = g => g.season_id ? seasonOf(g).title : 'המסע האישי שלי';
+const shortDate = iso => `${+iso.slice(8, 10)}.${+iso.slice(5, 7)}`;
+function phaseOf(ch) {
+  if (ch.days_target !== 66) return '';
+  return ch.day <= 22 ? 'שלב 1 · הרס' : ch.day <= 44 ? 'שלב 2 · התקנה' : 'שלב 3 · אינטגרציה';
+}
+function challengeLine(ch) {
+  if (ch.rest) return `סופ״ש · ביום ראשון ממשיכים ליום ${ch.day + 1}`;
+  if (ch.last) return 'היום האחרון באתגר';
+  return [phaseOf(ch), `מסיימים ב־${shortDate(ch.end)}`].filter(Boolean).join(' · ');
+}
 const seasonOf = g => g && g.season_id ? S.seasons.find(x => x.id === g.season_id) || null : null;
 const seasonEnd = x => addDays(x.start_date, x.days); // exclusive
 const openSeasons = () => S.seasons.filter(x => x.active && seasonEnd(x) > today());
 function setJourneys(goals) {
   S.personal = goals.find(g => !g.season_id) || null;
   S.groups = goals.filter(g => { const x = seasonOf(g); return x && seasonEnd(x) > today(); });
-  S.goal = S.personal || S.groups[0] || null;
-  S.season = seasonOf(S.goal);
+  syncChallenge();
 }
 async function loadPulse() { const { data } = await sb.rpc('sangha_pulse'); S.pulse = data || { today: 0, members: 0, sitting: 0, words: [] }; }
 async function loadRecordings() {
@@ -113,7 +149,7 @@ async function loadRecordings() {
 }
 const practicedToday = () => S.mine.find(p => p.day === today());
 function goalDone(g = S.goal) {
-  if (!g) return 0; const x = seasonOf(g), end = x ? seasonEnd(x) : '9999-12-31';
+  if (!g) return 0; const x = seasonOf(g), end = g.challenge ? addDays(g.end, 1) : x ? seasonEnd(x) : '9999-12-31';
   return S.mine.filter(p => p.day >= g.start_date && p.day < end).length;
 }
 function weeksStreak() {
@@ -181,7 +217,9 @@ function go(id) { if (location.hash !== '#' + id) location.hash = id; else route
 async function route() {
   if (!S.session) return renderAuth();
   if (!S.profile || S.profile.role === 'pending') return renderPending();
+  syncChallenge();
   let id = (location.hash || '#home').slice(1) || 'home';
+  if (id === 'goal' && !canPickJourney()) id = 'home';
   if (!S.goal && !['goal', 'me', 'admin'].includes(id)) id = 'goal';
   if (id === 'admin' && !isStaff()) id = 'home';
   if (!VIEWS[id]) id = 'home';
@@ -218,7 +256,7 @@ async function notificationsSheet() {
       sb.from('notifications').update({ read: true }).eq('id', b.dataset.n).then(refreshUnread);
       const link = b.dataset.link; closeSheet();
       if (link.startsWith('post:')) threadSheet(link.slice(5));
-      else if (link === 'question') { go('library'); setTimeout(askSheet, 400); }
+      else if (link === 'question') { libTab = 'rec'; go('library'); setTimeout(askSheet, 400); }
       else if (link === 'event') go('sangha');
     });
   });
@@ -257,7 +295,8 @@ function renderAuth(mode = 'join') {
         const { data: r } = await sb.rpc('redeem_invite', { p_code: code, p_name: name });
         await loadProfile();
         if (r !== 'ok') { toast('קוד ההזמנה לא תקין'); return renderPending(); }
-        await loadCore(); go('goal');
+        await loadCore(); go(S.goal ? 'home' : 'goal');
+        if (S.challenge) setTimeout(welcomeSheet, 900);
       } else {
         const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
         if (error) { btn.disabled = false; return err('האימייל או הסיסמה לא נכונים'); }
@@ -269,7 +308,7 @@ function renderAuth(mode = 'join') {
   if (f) f.onclick = async () => {
     const email = $('#a-email').value.trim(); if (!email) return err('כתבו קודם את האימייל');
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname + '#reset' });
-    err(error ? 'לא הצלחנו לשלוח. נסו שוב בעוד כמה דקות' : 'שלחנו קישור לאיפוס סיסמה למייל');
+    err(error ? 'לא הצלחנו לשלוח מייל איפוס. כתבו לליאור בוואטסאפ ונסדר' : 'שלחנו קישור לאיפוס סיסמה למייל');
   };
 }
 function renderPending() {
@@ -289,6 +328,12 @@ async function signOut() { await sb.auth.signOut(); S.session = null; S.profile 
 
 // ---------- GOAL ----------
 let goalTab = 'personal';
+function welcomeSheet() {
+  openSheet(`<div class="center stack"><div style="margin:0 auto;width:70px">${stageSvg(0)}</div><h2>ברוך/ה הבא/ה לסנגהה</h2>
+    <p class="small" style="color:var(--ink-2)">רוצה להציג את עצמך? כמה מילים מספיקות. כולם יקבלו התראה ויוכלו לקבל אותך בברכה.</p>
+    <button class="btn block" id="in-yes">כתיבת היכרות</button><button class="btn link" id="in-no">אחר כך</button></div>`, p => {
+      $('#in-no', p).onclick = closeSheet; $('#in-yes', p).onclick = () => { closeSheet(); composeSheet('intro'); }; });
+}
 function groupTarget(x) {
   const start = x.start_date > today() ? x.start_date : today(), left = daysBetween(start, seasonEnd(x));
   return { start, target: Math.max(1, Math.min(left, Math.round(left * x.per_week / 7))) };
@@ -309,6 +354,8 @@ VIEWS.goal = async function () {
   const pick = { days: cur ? cur.days_target : 40, per: cur ? cur.per_week : 5, min: cur ? cur.min_minutes : 15 };
   const custom = !preset.includes(pick.days);
   view.innerHTML = `${header('בוחרים מסע', S.goal ? 'המסעות שלי' : 'צעד ראשון')}
+  ${challengeJustEnded() && !S.goal ? `<div class="banner" id="ch-ended"><h3>סיימנו את האתגר 🌳</h3><p class="small" style="color:var(--ink-2)">מזל טוב. ימי התרגול והזרע נשארים איתך, ומכאן בוחרים איך ממשיכים.</p></div>`
+    : S.challenge ? `<p class="small">המסע החדש יתחיל מחר, אחרי היום האחרון של האתגר.</p>` : ''}
   <p style="color:var(--ink-2)">אפשר לבחור מסע אישי, להצטרף למסע של הסנגהה, או גם וגם.</p>
   <div class="chips" id="g-kind"><button class="chip" data-v="personal" aria-pressed="${goalTab === 'personal'}">המסע האישי שלי</button><button class="chip" data-v="group" aria-pressed="${goalTab === 'group'}">מסע קבוצתי</button></div>
   <div class="stack" id="g-personal" ${goalTab === 'personal' ? '' : 'hidden'}>
@@ -336,14 +383,11 @@ VIEWS.goal = async function () {
     const g = await guard(sb.from('goals').insert({ user_id: S.session.user.id, ...row }).select().single());
     setJourneys([g, S.personal, ...S.groups].filter(x => x && x !== replace && !x.completed));
     toast(g.season_id ? 'הצטרפת למסע של הסנגהה 🌱' : 'המסע האישי נשמר 🌱'); go(g.season_id && !first ? 'journey' : 'home');
-    if (first) setTimeout(() => openSheet(`<div class="center stack"><div style="margin:0 auto;width:70px">${stageSvg(0)}</div><h2>ברוך/ה הבא/ה לסנגהה</h2>
-      <p class="small" style="color:var(--ink-2)">רוצה להציג את עצמך? כמה מילים מספיקות. כולם יקבלו התראה ויוכלו לקבל אותך בברכה.</p>
-      <button class="btn block" id="in-yes">כתיבת היכרות</button><button class="btn link" id="in-no">אחר כך</button></div>`, p => {
-        $('#in-no', p).onclick = closeSheet; $('#in-yes', p).onclick = () => { closeSheet(); composeSheet('intro'); }; }), 900);
+    if (first) setTimeout(welcomeSheet, 900);
   };
   $('#g-save').onclick = () => {
     if (!Number.isInteger(pick.days) || pick.days < 3) return toast('בחרו מספר ימים, לפחות 3');
-    const start = () => add({ days_target: pick.days, per_week: pick.per, min_minutes: pick.min, start_date: today() }, cur);
+    const start = () => add({ days_target: pick.days, per_week: pick.per, min_minutes: pick.min, start_date: S.challenge ? addDays(S.challenge.end, 1) : today() }, cur);
     cur ? confirmSheet('להתחיל מסע אישי חדש? הספירה שלו תתחיל מהיום, והזרע לא מתאפס.', start) : start();
   };
   $$('[data-join]').forEach(b => b.onclick = async () => {
@@ -359,25 +403,27 @@ VIEWS.goal = async function () {
 // ---------- HOME ----------
 VIEWS.home = async function () {
   loadPulse().then(() => current === 'home' && paintPulse()).catch(() => {});
-  const p = S.profile, g = S.goal, done = goalDone(), pct = Math.min(1, done / g.days_target), C2 = 2 * Math.PI * 80;
+  syncChallenge();
+  const p = S.profile, g = S.goal, ch = S.challenge, done = ch ? ch.day : goalDone(), pct = Math.min(1, done / g.days_target), C2 = 2 * Math.PI * 80;
   const live = liveInfo(), pt = practicedToday(), q = quoteOfDay(), lastRec = S.recordings[0];
   const st = S.settings || {};
   view.innerHTML = `${header(`${greeting()}, ${(p.display_name || '').split(' ')[0]}`, heDate(today()))}
   ${welcomeBack() ? `<div class="banner"><h3>ברוך/ה השב/ה 🤍</h3><p class="small" style="color:var(--ink-2)">כל יום שתרגלת נשאר כאן. מתחילים מהיום, בלי חשבונות.</p></div>` : ''}
   <div class="hero"><div class="bgimg"></div>
-    <span class="eyebrow">${S.season ? esc(S.season.title) : 'המסע האישי שלי'}</span>
+    <span class="eyebrow">${ch ? esc(ch.title) : S.season ? esc(S.season.title) : 'המסע האישי שלי'}</span>
     <svg class="ring" viewBox="0 0 200 200" role="img" aria-label="${done} מתוך ${g.days_target}">
       <defs><clipPath id="seedclip"><circle cx="100" cy="100" r="74"/></clipPath></defs>
       <g class="seed-anim"><image href="icons/icon-512.png" x="26" y="26" width="148" height="148" clip-path="url(#seedclip)" preserveAspectRatio="xMidYMid slice"/></g>
       <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(242,234,214,.18)" stroke-width="5"/>
       <circle cx="100" cy="100" r="80" fill="none" stroke="var(--gold)" stroke-width="5" stroke-linecap="round" stroke-dasharray="${C2}" stroke-dashoffset="${C2 * (1 - pct)}" transform="rotate(-90 100 100)"/>
     </svg>
-    <div class="bignum num">${done}<small> / ${g.days_target}</small></div>
-    <span class="small" style="color:var(--ink-2)">${done >= g.days_target ? 'השלמת את היעד' : done >= g.days_target / 2 && done < g.days_target / 2 + 3 ? 'עברת את האמצע. כאן בדיוק זה הכי חשוב' : `השבוע ${thisWeekCount()} מתוך ${g.per_week}`}</span>
+    <div class="bignum num">${ch ? '<small>יום </small>' : ''}${done}<small> / ${g.days_target}</small></div>
+    <span class="small" id="hero-sub" style="color:var(--ink-2)">${ch ? esc(challengeLine(ch)) : done >= g.days_target ? 'השלמת את היעד' : done >= g.days_target / 2 && done < g.days_target / 2 + 3 ? 'עברת את האמצע. כאן בדיוק זה הכי חשוב' : `השבוע ${thisWeekCount()} מתוך ${g.per_week}`}</span>
   </div>
 
+  ${ch && ch.last ? `<div class="banner" id="ch-last"><h3>הגענו ליום ${ch.days_target} 🌳</h3><p class="small" style="color:var(--ink-2)">מזל טוב. אפשר כבר לבחור את המסע שיתחיל מחר.</p><button class="btn block" data-go="goal">לבחור את המסע הבא</button></div>` : ''}
   <div class="card" id="practice"></div>
-  ${S.groups.filter(x => x !== g).map(x => `<button class="card gold row" data-go="journey" style="flex-direction:row;cursor:pointer;text-align:right"><span class="grow"><span class="eyebrow">מסע קבוצתי</span><br>${esc(seasonOf(x).title)}</span><b class="num">${goalDone(x)} / ${x.days_target}</b></button>`).join('')}
+  ${otherJourneys().map(x => `<button class="card gold row" data-go="journey" style="flex-direction:row;cursor:pointer;text-align:right"><span class="grow"><span class="eyebrow">${x.season_id ? 'מסע קבוצתי' : 'מסע אישי'}</span><br>${esc(journeyName(x))}</span><b class="num">${goalDone(x)} / ${x.days_target}</b></button>`).join('')}
 
   <div class="card"><div class="row"><div class="grow">
     <span class="eyebrow">${live && live.now ? 'עכשיו בזום' : 'התרגול המשותף הבא'}</span>
@@ -391,7 +437,8 @@ VIEWS.home = async function () {
 
   <div class="card" id="pulse"><span class="eyebrow">היום בסנגהה</span><p class="small">טוען…</p></div>
 
-  ${q ? `<div class="card"><span class="eyebrow">משפט ליום${q.source ? ' · ' + esc(q.source) : ''}</span><p class="quote">${esc(q.text)}</p></div>` : ''}`;
+  ${q ? `<div class="card"><span class="eyebrow">משפט ליום${q.source ? ' · ' + esc(q.source) : ''}</span><p class="quote">${esc(q.text)}</p></div>` : ''}
+  ${danaHtml()}`;
   bindGo(); paintPractice();
   if (live && live.now) { const zc = $('#zoom') && $('#zoom').closest('.card'), hero = $('.hero'); if (zc && hero) hero.after(zc); }
   const z = $('#zoom'); if (z) z.onclick = () => { markSitting(+(st.live_minutes || 60)); };
@@ -406,7 +453,7 @@ function paintPractice() {
     $('#pr-edit').onclick = () => practiceSheet(pt);
     return;
   }
-  box.innerHTML = `<h3>תרגלת היום?</h3><p class="small">גם מעט נחשב. המינימום שבחרת: ${S.goal.min_minutes} דק׳</p>
+  box.innerHTML = `<h3>תרגלת היום?</h3><p class="small">${S.challenge ? 'בזום, מהקלטה או לבד. גם מעט נחשב.' : `גם מעט נחשב. המינימום שבחרת: ${S.goal.min_minutes} דק׳`}</p>
     <div class="row wrap"><button class="btn grow" id="pr-yes">כן, תרגלתי</button><button class="btn ghost" id="pr-breath">🌬 נשימה אחת · 3 דק׳</button></div>`;
   $('#pr-yes').onclick = () => practiceSheet();
   $('#pr-breath').onclick = breathing;
@@ -477,6 +524,8 @@ function paintPulse() {
 
 // ---------- JOURNEY ----------
 VIEWS.journey = async function () {
+  syncChallenge(); if (!S.goal) return go('goal');
+  if (S.challenge) return challengeJourney();
   const g = S.goal, done = goalDone(), total = S.mine.length, si = stageOf(total), next = STAGES[si + 1];
   const dots = Array.from({ length: g.days_target }, (_, i) => `<span class="dot ${i < done ? 'on' : ''}" title="${i + 1}"></span>`).join('');
   const half = Math.ceil(g.days_target / 2);
@@ -487,27 +536,117 @@ VIEWS.journey = async function () {
   <div class="card"><div class="row"><h3 class="grow">${g.days_target} ימים · ${g.per_week === 7 ? 'כל יום' : g.per_week + ' בשבוע'} · ${g.min_minutes} דק׳</h3><button class="btn link" data-journey="${S.personal ? 'personal' : 'group'}">שינוי</button></div>
     <div class="dots">${dots}</div>
     <span class="small">${done < half ? `האמצע ביום ${half}. שם המוטיבציה נוטה לרדת, וזה טבעי.` : done < g.days_target ? 'עברת את האמצע. מכאן זה נהיה שלך.' : 'השלמת את היעד 🌳'}</span></div>
-  ${S.groups.filter(x => x !== g).map(x => `<div class="card gold"><span class="eyebrow">מסע קבוצתי</span><div class="row"><h3 class="grow">${esc(seasonOf(x).title)}</h3><b class="num">${goalDone(x)} / ${x.days_target}</b></div><div class="progress"><i style="width:${Math.min(100, goalDone(x) / x.days_target * 100)}%"></i></div></div>`).join('')}
+  ${journeyCards()}
   <div class="row wrap">${S.personal ? '' : '<button class="btn ghost grow" data-journey="personal">הוספת מסע אישי</button>'}<button class="btn ghost grow" data-journey="group">מסע קבוצתי</button></div>
-  <div class="card"><span class="eyebrow">הזרע שלך</span>
-    <div class="stages">${STAGES.map((s, i) => `<div class="${i <= si ? 'reached' : ''} ${i === si ? 'cur' : ''}">${stageSvg(i)}<span>${s.n}</span></div>`).join('')}</div>
-    <p class="small">${next ? `עוד ${next.at - total} ימי תרגול עד ${next.n}. הצמיחה לא מתאפסת בין יעדים.` : 'עץ פורח. כל יום ממשיך להוסיף.'}</p></div>
+  ${seedCard()}
   <div class="card soft"><h3>יום שפספסת לא מוחק כלום</h3><p class="small" style="line-height:1.7">כל יום שישבת נשאר כאן. ${g.per_week < 7 ? `${7 - g.per_week} ימי מנוחה בשבוע הם חלק מהתוכנית.` : ''} חמלה היא חלק מהתרגול.</p></div>
-  ${S.mine.length ? `<div class="card"><span class="eyebrow">ימים אחרונים</span>${S.mine.slice(0, 7).map(p => `<div class="row"><span class="grow">${heDate(p.day)}</span><span class="small">${{ live: 'זום', recording: 'הקלטה', solo: 'לבד', breath: 'נשימה' }[p.mode]} · ${p.minutes} דק׳${p.word ? ' · ' + esc(p.word) : ''}</span></div>`).join('')}</div>` : ''}`;
+  ${recentCard()}`;
   bindGo(); bindJourney();
 };
 
+function journeyCards() {
+  return otherJourneys().map(x => `<div class="card gold"><span class="eyebrow">${x.season_id ? 'מסע קבוצתי' : 'מסע אישי'}</span><div class="row"><h3 class="grow">${esc(journeyName(x))}</h3><b class="num">${goalDone(x)} / ${x.days_target}</b></div><div class="progress"><i style="width:${Math.min(100, goalDone(x) / x.days_target * 100)}%"></i></div></div>`).join('');
+}
+function seedCard() {
+  const total = S.mine.length, si = stageOf(total), next = STAGES[si + 1];
+  return `<div class="card"><span class="eyebrow">הזרע שלך</span>
+    <div class="stages">${STAGES.map((s, i) => `<div class="${i <= si ? 'reached' : ''} ${i === si ? 'cur' : ''}">${stageSvg(i)}<span>${s.n}</span></div>`).join('')}</div>
+    <p class="small">${next ? `עוד ${next.at - total} ימי תרגול עד ${next.n}. הצמיחה לא מתאפסת בין יעדים.` : 'עץ פורח. כל יום ממשיך להוסיף.'}</p></div>`;
+}
+function recentCard() {
+  return `${S.mine.length ? `<div class="card"><span class="eyebrow">ימים אחרונים</span>${S.mine.slice(0, 7).map(p => `<div class="row"><span class="grow">${heDate(p.day)}</span><span class="small">${{ live: 'זום', recording: 'הקלטה', solo: 'לבד', breath: 'נשימה' }[p.mode]} · ${p.minutes} דק׳${p.word ? ' · ' + esc(p.word) : ''}</span></div>`).join('')}</div>` : ''}`;
+}
+function challengeJourney() {
+  const ch = S.challenge, mine = new Set(S.mine.map(p => p.day)), t = today();
+  view.innerHTML = `${header('המסע', ch.title)}
+  <div class="stats"><div class="stat"><b class="num">${ch.day}</b><span class="small">מתוך ${ch.days_target}</span></div>
+    <div class="stat"><b class="num">${ch.days_target - ch.day}</b><span class="small">ימים לסיום</span></div>
+    <div class="stat"><b class="num">${goalDone(ch)}</b><span class="small">ימים שסימנתי</span></div></div>
+  <div class="card"><h3>${esc(challengeLine(ch))}</h3>
+    <div class="dots">${ch.dates.map((d, i) => `<span class="dot ${mine.has(d) ? 'on' : d < t ? 'passed' : ''} ${d === t ? 'now' : ''}" title="יום ${i + 1} · ${shortDate(d)}"></span>`).join('')}</div>
+    <span class="small">זהב מלא הוא יום שסימנת. ימי האתגר שעברו מופיעים בזהב עדין, כי חלקם היו עוד לפני האפליקציה.</span></div>
+  ${ch.last ? '<button class="btn block" data-journey="personal">לבחור את המסע הבא</button>' : ''}
+  ${journeyCards()}
+  ${seedCard()}
+  <div class="card soft"><h3>יום שפספסת לא מוחק כלום</h3><p class="small" style="line-height:1.7">כל יום שישבת נשאר איתך. שישי ושבת לא נספרים באתגר. חמלה היא חלק מהתרגול.</p></div>
+  ${recentCard()}`;
+  bindGo(); bindJourney();
+}
 function bindJourney(root = view) { $$('[data-journey]', root).forEach(b => b.onclick = () => { goalTab = b.dataset.journey; go('goal'); }); }
 
 // ---------- LIBRARY ----------
-let libFilter = { topic: 'הכל', q: '' };
+let libFilter = { topic: 'הכל', q: '' }, libTab = 'rec', readKind = 'all';
+const RKIND = { sutta: 'דרשות הבודהה', text: 'קטעים', link: 'קישורים', book: 'ספרים' };
+const libTabs = () => `<div class="chips" id="lib-tab">${[['rec', 'הקלטות ותרגול'], ['read', 'מומלץ לקריאה']].map(([k, t]) => `<button class="chip" data-v="${k}" aria-pressed="${libTab === k}">${t}</button>`).join('')}</div>`;
+function bindLibTabs() { chipGroup($('#lib-tab'), v => { libTab = v; VIEWS.library(); }); }
+const safeUrl = u => /^https?:\/\//i.test(u || '') ? u : '';
+function readingHtml(x) {
+  const u = safeUrl(x.url), long = (x.body || '').length > 280;
+  const body = `<p class="reading-body" dir="auto">${esc(x.body)}</p>`;
+  return `<article class="card" data-reading="${x.id}"><span class="eyebrow">${RKIND[x.kind] || ''}</span>
+    <h3 dir="auto">${esc(x.title)}</h3>${x.author ? `<span class="small" dir="auto">${esc(x.author)}</span>` : ''}
+    ${x.body ? (long ? `<p class="reading-body" dir="auto">${esc(x.body.slice(0, 180))}…</p><details class="reading-more"><summary>לקריאת הקטע המלא</summary>${body}</details>` : body) : ''}
+    ${u || isStaff() ? `<div class="row wrap">${u ? `<a class="icon-btn" style="text-decoration:none" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${x.kind === 'book' ? 'לפרטים על הספר' : 'לפתיחת הקישור'}</a>` : ''}<span class="grow"></span>
+      ${isStaff() ? '<button class="btn link" data-redit>עריכה</button><button class="btn link" data-rdel>מחיקה</button>' : ''}</div>` : ''}</article>`;
+}
+async function readingView() {
+  view.innerHTML = `${header('ספרייה')}${libTabs()}<div class="card"><p class="small">טוען…</p></div>`; bindGo(); bindLibTabs();
+  const all = (await guard(sb.from('readings').select('*').order('created_at', { ascending: false }))) || [];
+  if (current !== 'library' || libTab !== 'read') return;
+  view.innerHTML = `${header('ספרייה')}${libTabs()}
+  ${isStaff() ? '<button class="btn block" id="rd-add">הוספת קטע, קישור או ספר</button>' : ''}
+  <div class="chips scroll" id="rd-kind">${[['all', 'הכל'], ...Object.entries(RKIND)].map(([k, t]) => `<button class="chip" data-v="${k}" aria-pressed="${readKind === k}">${t}</button>`).join('')}</div>
+  <div class="stack" id="rd-list"></div>`;
+  bindGo(); bindLibTabs();
+  const paint = () => {
+    const list = all.filter(x => readKind === 'all' || x.kind === readKind);
+    $('#rd-list').innerHTML = list.length ? list.map(readingHtml).join('')
+      : `<div class="card soft"><p class="small">${all.length ? 'עוד אין המלצות בנושא הזה.' : 'כאן יצטברו הקטעים, הקישורים והספרים שעדי מביאה לסנגהה.'}</p></div>`;
+    $$('[data-reading]').forEach(el => {
+      const x = all.find(y => y.id === el.dataset.reading), e = $('[data-redit]', el), d = $('[data-rdel]', el), more = $('.reading-more', el);
+      if (more) more.ontoggle = () => { more.previousElementSibling.hidden = more.open; };
+      if (e) e.onclick = () => readingSheet(x);
+      if (d) d.onclick = () => confirmSheet('למחוק את ההמלצה?', async () => { await guard(sb.from('readings').delete().eq('id', x.id)); readingView(); });
+    });
+  };
+  paint();
+  chipGroup($('#rd-kind'), v => { readKind = v; paint(); });
+  if ($('#rd-add')) $('#rd-add').onclick = () => readingSheet();
+}
+function readingSheet(x) {
+  let kind = x ? x.kind : readKind === 'all' ? 'sutta' : readKind;
+  openSheet(`<h2>${x ? 'עריכת המלצה' : 'המלצה חדשה לקריאה'}</h2>
+    <div class="chips" id="rs-kind">${Object.entries(RKIND).map(([k, t]) => `<button class="chip" data-v="${k}" aria-pressed="${k === kind}">${t}</button>`).join('')}</div>
+    <label class="field">כותרת<input type="text" id="rs-title" maxlength="160" value="${esc(x ? x.title : '')}"></label>
+    <label class="field">מקור / מחבר (רשות)<input type="text" id="rs-author" maxlength="160" value="${esc(x ? x.author : '')}"></label>
+    <label class="field">הטקסט, או כמה מילים על ההמלצה<textarea id="rs-body" maxlength="30000" rows="7">${esc(x ? x.body : '')}</textarea></label>
+    <label class="field">קישור (רשות)<input type="url" id="rs-url" dir="ltr" value="${esc(x && x.url || '')}"></label>
+    <button class="btn block" id="rs-save">${x ? 'שמירה' : 'פרסום לספרייה'}</button>`, () => {
+    chipGroup($('#rs-kind'), v => kind = v);
+    $('#rs-save').onclick = async () => {
+      const title = $('#rs-title').value.trim(), body = $('#rs-body').value.trim(); let url = $('#rs-url').value.trim();
+      if (!title) return toast('צריך כותרת');
+      if (url && !safeUrl(url)) url = 'https://' + url;
+      if (url && !/^https?:\/\/[^\s]+\.[^\s]+$/i.test(url)) return toast('הקישור לא תקין');
+      if (!body && !url && kind !== 'book') return toast('הוסיפו טקסט או קישור');
+      const row = { kind, title, body, url: url || null, author: $('#rs-author').value.trim() }, btn = $('#rs-save'); btn.disabled = true;
+      try {
+        await guard(x ? sb.from('readings').update(row).eq('id', x.id) : sb.from('readings').insert(row));
+        closeSheet(); toast('נשמר בספרייה'); readKind = 'all'; libTab = 'read';
+        if (current === 'library') readingView(); else go('library');
+      } catch (_) { btn.disabled = false; }
+    };
+  });
+}
 VIEWS.library = async function () {
-  view.innerHTML = `${header('ספרייה')}<div class="card"><p class="small">טוען הקלטות…</p></div>`; bindGo();
+  if (libTab === 'read') return readingView();
+  view.innerHTML = `${header('ספרייה')}${libTabs()}<div class="card"><p class="small">טוען הקלטות…</p></div>`; bindGo(); bindLibTabs();
   await loadRecordings();
   const { data: faq } = await sb.rpc('faq');
+  if (current !== 'library' || libTab !== 'rec') return;
   const topics = ['הכל', ...new Set(S.recordings.map(r => r.topic))];
   const heard = S.recordings.filter(r => S.listens[r.id] && S.listens[r.id].completed).length;
-  view.innerHTML = `${header('ספרייה')}
+  view.innerHTML = `${header('ספרייה')}${libTabs()}
   ${S.recordings.length ? `<div class="card"><div class="row"><span class="grow">הקשבת ל־<b class="num">${heard}</b> מתוך <b class="num">${S.recordings.length}</b> הקלטות</span></div><div class="progress"><i style="width:${S.recordings.length ? heard / S.recordings.length * 100 : 0}%"></i></div></div>` : ''}
   <input type="text" id="lib-q" placeholder="חיפוש לפי נושא, מנחה או מילה" value="${esc(libFilter.q)}" aria-label="חיפוש">
   <div class="chips scroll" id="lib-t">${topics.map(t => `<button class="chip" data-v="${esc(t)}" aria-pressed="${t === libFilter.topic}">${esc(t)}</button>`).join('')}</div>
@@ -517,7 +656,7 @@ VIEWS.library = async function () {
     <button class="btn block" id="tm-go">התחלה · 15 דק׳</button></div>
   <div class="card"><div class="row"><h3 class="grow">שאלות ותשובות</h3><button class="btn small" id="ask">שאלה למנחה</button></div>
     ${(faq || []).length ? (faq || []).map(f => `<details class="faq"><summary>${esc(f.q)} <span class="tag">${esc(f.topic)}</span></summary><p>${esc(f.a)}</p></details>`).join('') : '<p class="small">התשובות של עדי יצטברו כאן לפי נושא.</p>'}</div>`;
-  bindGo();
+  bindGo(); bindLibTabs();
   const paint = () => {
     const q = libFilter.q.trim(); const list = S.recordings.filter(r => (libFilter.topic === 'הכל' || r.topic === libFilter.topic) && (!q || (r.title + r.topic + r.guide + (r.summary || '')).includes(q)));
     $('#lib-list').innerHTML = list.length ? list.map(r => { const L = S.listens[r.id];
@@ -629,7 +768,8 @@ VIEWS.sangha = async function (quiet) {
     <button class="card soft row" id="mem-open" style="flex:1;flex-direction:row;padding:8px 12px;cursor:pointer;min-width:160px"><div class="faces">${faces}</div><span class="small grow">${S.members.length} בסנגהה · מי פה?</span></button></div>
   <button class="composer" id="compose"><span class="avatar" style="background:${esc(S.profile.color)}">${esc(initials(S.profile.display_name))}</span><span class="grow">שתפו תובנה, שאלה או רגע של הודיה…</span></button>
   <div class="composer-types">${[['insight', '✨'], ['question', '❓'], ['gratitude', '🙏'], ['temple', '🕯']].map(([k, i]) => `<button data-ck="${k}"><span>${i}</span>${KIND[k]}</button>`).join('')}</div>
-  ${openSeasons().filter(x => !S.groups.some(g => g.season_id === x.id)).map(x => `<div class="card gold"><span class="eyebrow">מסע קבוצתי לסנגהה</span><div class="row"><div class="grow"><h3>${esc(x.title)}</h3><span class="small">${x.days} ימים · ${x.per_week} פעמים בשבוע</span></div><button class="btn small" data-journey="group">לפרטים והצטרפות</button></div></div>`).join('')}
+  ${danaHtml()}
+  ${(canPickJourney() ? openSeasons() : []).filter(x => !S.groups.some(g => g.season_id === x.id)).map(x => `<div class="card gold"><span class="eyebrow">מסע קבוצתי לסנגהה</span><div class="row"><div class="grow"><h3>${esc(x.title)}</h3><span class="small">${x.days} ימים · ${x.per_week} פעמים בשבוע</span></div><button class="btn small" data-journey="group">לפרטים והצטרפות</button></div></div>`).join('')}
   ${pinned.map(p => postHtml(p, true)).join('')}
   ${(ev.data || []).map(e => { const d = new Date(e.starts_at);
     return `<div class="card"><span class="eyebrow">אירוע קרוב</span><div class="row"><div class="grow"><h3>${esc(e.title)}</h3>
@@ -652,6 +792,11 @@ VIEWS.sangha = async function (quiet) {
   bindPosts();
   loadPostImages();
 };
+function danaHtml() {
+  const u = safeUrl(S.settings && S.settings.dana_url);
+  return u ? `<div class="card soft dana"><div class="row"><div class="grow"><h3>דאנה · נדיבות</h3><span class="small">נתינה לסנגהה דרך פייבוקס. לא חובה.</span></div>
+    <a class="btn ghost" href="${esc(u)}" target="_blank" rel="noopener noreferrer">לנתינה</a></div></div>` : '';
+}
 const KIND = { insight: 'תובנה', question: 'שאלה', gratitude: 'הודיה', temple: 'מקדש', announcement: 'מהמנחה', intro: 'היכרות', milestone: 'צמיחה' };
 function membersSheet() {
   const list = S.members || [];
@@ -775,7 +920,7 @@ VIEWS.me = async function () {
 // ---------- ADMIN (facilitator) ----------
 VIEWS.admin = async function () {
   view.innerHTML = `<div class="row"><button class="btn link" data-go="home">→ חזרה</button></div><h1>ניהול</h1>
-  <div class="chips scroll" id="ad-t">${[['rec', 'הקלטה'], ['post', 'הודעה'], ['ev', 'אירוע'], ['q', 'שאלות'], ['season', 'מסע קבוצתי'], ['quote', 'משפט'], ['rep', 'דיווחים'], ['set', 'הגדרות'], ['mem', 'חברים']].map(([k, t], i) => `<button class="chip" data-v="${k}" aria-pressed="${i === 0}">${t}</button>`).join('')}</div>
+  <div class="chips scroll" id="ad-t">${[['rec', 'הקלטה'], ['post', 'הודעה'], ['ev', 'אירוע'], ['read', 'קריאה'], ['q', 'שאלות'], ['season', 'מסע קבוצתי'], ['quote', 'משפט'], ['rep', 'דיווחים'], ['set', 'הגדרות'], ['mem', 'חברים']].map(([k, t], i) => `<button class="chip" data-v="${k}" aria-pressed="${i === 0}">${t}</button>`).join('')}</div>
   <div id="ad-body" class="stack"></div>`;
   bindGo(); chipGroup($('#ad-t'), adminTab); adminTab('rec');
 };
@@ -811,6 +956,9 @@ async function adminTab(t) {
     const data = ((await guard(sb.rpc('staff_posts'))) || []).filter(p => p.pinned && !p.hidden);
     $('#pins').innerHTML = (data || []).map(p => `<div class="card soft"><p class="small">${esc(p.body.slice(0, 140))}</p><button class="btn link" data-unpin="${p.id}">הסרת הצמדה</button></div>`).join('');
     $$('[data-unpin]').forEach(x => x.onclick = async () => { await guard(sb.rpc('moderate_post', { p_id: x.dataset.unpin, p_pinned: false })); adminTab('post'); });
+  } else if (t === 'read') {
+    b.innerHTML = `<div class="card"><h3>מומלץ לקריאה</h3><p class="small">דרשות, קטעים, קישורים וספרים. עריכה ומחיקה נעשות מהספרייה.</p><button class="btn block" id="ad-read">הוספת המלצה</button></div>`;
+    $('#ad-read').onclick = () => readingSheet();
   } else if (t === 'ev') {
     b.innerHTML = `<div class="card"><h3>אירוע חדש</h3><label class="field">שם<input type="text" id="e-t"></label>
       <label class="field">מתי<input type="datetime-local" id="e-d"></label><label class="field">משך בדקות<input type="number" id="e-m" value="90"></label>
@@ -850,9 +998,9 @@ async function adminTab(t) {
       <div class="row"><label class="field grow">שעה<input type="time" id="z-t" value="${esc(String(st.live_time || '05:30').slice(0, 5))}"></label><label class="field" style="width:110px">דקות<input type="number" id="z-m" value="${st.live_minutes || 60}"></label></div>
       <span class="small">ימים</span><div class="chips" id="z-d">${DAYNAMES.map((d, i) => `<button class="chip" data-v="${i}" aria-pressed="${(st.live_days || []).includes(i)}">${d}</button>`).join('')}</div>
       <label class="field">שם המנחה<input type="text" id="z-n" value="${esc(st.facilitator_name || '')}"></label>
-      <label class="field">קישור לקבוצת הוואטסאפ (יופיע בסנגהה)<input type="url" id="z-w" dir="ltr" value="${esc(st.whatsapp_url || '')}"></label><button class="btn block" id="z-s">שמירה</button></div>`;
+      <label class="field">קישור לקבוצת הוואטסאפ (יופיע בסנגהה)<input type="url" id="z-w" dir="ltr" value="${esc(st.whatsapp_url || '')}"></label><label class="field">קישור לדאנה בפייבוקס<input type="url" id="z-dn" dir="ltr" value="${esc(st.dana_url || '')}"></label><button class="btn block" id="z-s">שמירה</button></div>`;
     $('#z-d').onclick = e => { const c = e.target.closest('.chip'); if (c) c.setAttribute('aria-pressed', c.getAttribute('aria-pressed') !== 'true'); };
-    $('#z-s').onclick = async () => { const row = { zoom_url: $('#z-u').value.trim(), whatsapp_url: $('#z-w').value.trim() || null, live_time: $('#z-t').value, live_minutes: +$('#z-m').value || 60, facilitator_name: $('#z-n').value.trim(),
+    $('#z-s').onclick = async () => { const row = { zoom_url: $('#z-u').value.trim(), whatsapp_url: $('#z-w').value.trim() || null, dana_url: $('#z-dn').value.trim() || null, live_time: $('#z-t').value, live_minutes: +$('#z-m').value || 60, facilitator_name: $('#z-n').value.trim(),
       live_days: $$('#z-d .chip').filter(c => c.getAttribute('aria-pressed') === 'true').map(c => +c.dataset.v) };
       await guard(sb.from('settings').update(row).eq('id', 1)); S.settings = { ...st, ...row }; toast('נשמר'); };
   } else if (t === 'mem') {
@@ -895,7 +1043,7 @@ sb.auth.onAuthStateChange((ev, session) => {
       const { error } = await sb.auth.updateUser({ password: $('#np').value }); toast(error ? 'הסיסמה צריכה 6 תווים לפחות' : 'הסיסמה עודכנה'); if (!error) { closeSheet(); boot(); } });
   }
 });
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.session && current === 'home') VIEWS.home(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible' || !S.session || !S.profile || S.profile.role === 'pending' || current !== 'home') return; syncChallenge(); if (S.goal) VIEWS.home(); else route(); });
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 const netBanner = () => { const o = $('#offline'); if (o) o.hidden = navigator.onLine; };
 window.addEventListener('online', () => { netBanner(); flushPending(); if (S.session && current) route(); });
