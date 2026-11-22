@@ -164,7 +164,7 @@ function weeksStreak() {
 function thisWeekCount() { const t = today(); const wd = new Date(t + 'T12:00:00Z').getUTCDay(); const ws = addDays(t, -wd); return S.mine.filter(p => p.day >= ws && p.day <= t).length; }
 function welcomeBack() {
   if (practicedToday() || !S.mine.length) return false;
-  const last = S.mine[0].day; return daysBetween(last, today()) >= 3;
+  const last = S.mine[0].day; if (S.challenge) return S.challenge.dates.filter(d => d > last && d < today()).length >= 2; return daysBetween(last, today()) >= 3;
 }
 function quoteOfDay() { if (!S.quotes.length) return null; const n = daysBetween('2026-01-01', today()); return S.quotes[((n % S.quotes.length) + S.quotes.length) % S.quotes.length]; }
 
