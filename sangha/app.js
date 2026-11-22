@@ -324,7 +324,7 @@ function renderPending() {
   };
   $('#p-out').onclick = signOut;
 }
-async function signOut() { await sb.auth.signOut(); S.session = null; S.profile = null; location.hash = ''; renderAuth('login'); }
+async function signOut() { await sb.auth.signOut(); S.session = null; S.profile = null; S.convo = null; location.hash = ''; renderAuth('login'); }
 
 // ---------- GOAL ----------
 let goalTab = 'personal';
@@ -409,7 +409,7 @@ VIEWS.home = async function () {
   const st = S.settings || {};
   view.innerHTML = `${header(`${greeting()}, ${(p.display_name || '').split(' ')[0]}`, heDate(today()))}
   ${welcomeBack() ? `<div class="banner"><h3>ברוך/ה השב/ה 🤍</h3><p class="small" style="color:var(--ink-2)">כל יום שתרגלת נשאר כאן. מתחילים מהיום, בלי חשבונות.</p></div>` : ''}
-  <div class="hero"><div class="bgimg"></div>
+  <div class="hero home-hero"><div class="bgimg"></div>
     <span class="eyebrow">${ch ? esc(ch.title) : S.season ? esc(S.season.title) : 'המסע האישי שלי'}</span>
     <svg class="ring" viewBox="0 0 200 200" role="img" aria-label="${done} מתוך ${g.days_target}">
       <defs><clipPath id="seedclip"><circle cx="100" cy="100" r="74"/></clipPath></defs>
@@ -423,6 +423,7 @@ VIEWS.home = async function () {
 
   ${ch && ch.last ? `<div class="banner" id="ch-last"><h3>הגענו ליום ${ch.days_target} 🌳</h3><p class="small" style="color:var(--ink-2)">מזל טוב. אפשר כבר לבחור את המסע שיתחיל מחר.</p><button class="btn block" data-go="goal">לבחור את המסע הבא</button></div>` : ''}
   <div class="card" id="practice"></div>
+  <section class="convo" id="convo" aria-label="מהשיחה בסנגהה"></section>
   ${backfillCardHtml()}
   ${otherJourneys().map(x => `<button class="card gold row" data-go="journey" style="flex-direction:row;cursor:pointer;text-align:right"><span class="grow"><span class="eyebrow">${x.season_id ? 'מסע קבוצתי' : 'מסע אישי'}</span><br>${esc(journeyName(x))}</span><b class="num">${goalDone(x)} / ${x.days_target}</b></button>`).join('')}
 
@@ -440,7 +441,7 @@ VIEWS.home = async function () {
 
   ${q ? `<div class="card"><span class="eyebrow">משפט ליום${q.source ? ' · ' + esc(q.source) : ''}</span><p class="quote">${esc(q.text)}</p></div>` : ''}
   ${danaHtml()}`;
-  bindGo(); bindBackfill(); paintPractice();
+  bindGo(); bindBackfill(); paintPractice(); paintConvo(); loadConvo();
   if (live && live.now) { const zc = $('#zoom') && $('#zoom').closest('.card'), hero = $('.hero'); if (zc && hero) hero.after(zc); }
   const z = $('#zoom'); if (z) z.onclick = () => { markSitting(+(st.live_minutes || 60)); };
   $$('[data-rec]').forEach(b => b.onclick = () => playRecording(b.dataset.rec));
@@ -596,6 +597,43 @@ function backfillSheet() {
     paint();
   });
 }
+
+// ---------- the sangha conversation, on home ----------
+// Two quiet lines at most: a fresh pinned message from the facilitator, then the latest activity.
+function convoPick(posts) {
+  const at = p => new Date(p.last_activity || p.created_at).getTime();
+  const pins = posts.filter(p => p.pinned).sort((x, y) => new Date(y.created_at) - new Date(x.created_at));
+  const rest = posts.filter(p => !p.pinned).sort((x, y) => at(y) - at(x));
+  const pinFirst = pins.length && (Date.now() - new Date(pins[0].created_at) < 7 * 864e5 || !rest.length);
+  return (pinFirst ? [pins[0], ...rest] : rest).slice(0, 2);
+}
+function convoRow(p) {
+  const who = p.anonymous ? 'חבר/ת סנגהה' : p.author, n = Number(p.comments) || 0;
+  return `<button class="cv-row" data-convo="${p.id}">
+    <span class="avatar" style="background:${p.anonymous ? 'var(--line)' : esc(p.color || '#E6C068')}">${p.anonymous ? '·' : esc(initials(p.author))}</span>
+    <span class="grow cv-text"><span class="cv-meta"><b class="${p.is_staff ? 'cv-staff' : ''}">${esc(who)}</b><span>${n === 1 ? 'תגובה אחת' : n ? `${n} תגובות` : ago(p.created_at)}</span></span>
+      <span class="cv-body" dir="auto">${esc(String(p.body || '').replace(/\s+/g, ' ').slice(0, 160))}</span></span></button>`;
+}
+function paintConvo() {
+  const box = $('#convo'); if (!box) return;
+  const list = S.convo, rows = list ? convoPick(list) : null;
+  box.innerHTML = `<div class="cv-head"><span class="eyebrow">מהשיחה בסנגהה</span><button class="btn link" id="cv-all">לכל השיחה</button></div>
+    ${!rows ? `<p class="small cv-wait">${S.convoFailed ? 'השיחה לא נטענה. אפשר לפתוח אותה דרך "הסנגהה".' : 'טוען…'}</p>`
+      : rows.length ? rows.map(convoRow).join('') : '<button class="cv-row cv-empty" id="cv-first">עוד שקט כאן. אפשר לפתוח את השיחה</button>'}`;
+  $('#cv-all', box).onclick = () => go('sangha');
+  const first = $('#cv-first', box); if (first) first.onclick = () => composeSheet();
+  $$('[data-convo]', box).forEach(b => b.onclick = () => threadSheet(b.dataset.convo));
+}
+async function loadConvo() {
+  if (!S.session) return;
+  try {
+    const { data, error } = await sb.rpc('feed', { p_limit: 12, p_mode: 'active' });
+    if (error) throw error;
+    S.convo = data || []; S.convoFailed = false;
+  } catch (e) { console.error(e); S.convoFailed = true; }
+  if (current === 'home') paintConvo();
+}
+setInterval(() => { if (current === 'home' && S.session && sheet.hidden && document.visibilityState === 'visible') loadConvo(); }, 60000);
 
 // ---------- JOURNEY ----------
 VIEWS.journey = async function () {
@@ -895,9 +933,9 @@ async function threadSheet(postId) {
       <div class="reply-bar"><textarea id="th-r" placeholder="תגובה חמה…" aria-label="תגובה"></textarea><button class="btn" id="th-s">שליחה</button></div>
       <label class="check"><input type="checkbox" id="th-a"> בעילום שם</label>`;
     bindPosts($('#th')); loadPostImages($('#th'));
-    $$('[data-cdel]').forEach(b => b.onclick = async () => { await guard(b.dataset.own === 'true' ? sb.from('comments').delete().eq('id', b.dataset.cdel) : sb.rpc('staff_delete_comment', { p_id: b.dataset.cdel })); threadSheet(postId); });
+    $$('[data-cdel]').forEach(b => b.onclick = async () => { await guard(b.dataset.own === 'true' ? sb.from('comments').delete().eq('id', b.dataset.cdel) : sb.rpc('staff_delete_comment', { p_id: b.dataset.cdel })); threadSheet(postId); if (current === 'home') loadConvo(); });
     $('#th-s').onclick = async () => { const body = $('#th-r').value.trim(); if (!body) return; const btn = $('#th-s'); btn.disabled = true;
-      try { await guard(sb.from('comments').insert({ post_id: postId, user_id: S.session.user.id, body, anonymous: $('#th-a').checked })); threadSheet(postId); if (current === 'sangha') VIEWS.sangha(true); }
+      try { await guard(sb.from('comments').insert({ post_id: postId, user_id: S.session.user.id, body, anonymous: $('#th-a').checked })); threadSheet(postId); if (current === 'sangha') VIEWS.sangha(true); else if (current === 'home') loadConvo(); }
       catch (_) { btn.disabled = false; } };
   });
 }
@@ -925,7 +963,7 @@ function bindPosts(root = view) {
     const s = $('[data-save]', a); if (s) s.onclick = async () => { const on = s.getAttribute('aria-pressed') !== 'true'; s.setAttribute('aria-pressed', on); s.textContent = on ? 'נשמר' : 'שמירה';
       if (on) await sb.from('saves').insert({ post_id: id, user_id: S.session.user.id }); else await sb.from('saves').delete().eq('post_id', id).eq('user_id', S.session.user.id); };
     const d = $('[data-del]', a); if (d) d.onclick = () => confirmSheet(d.textContent === 'מחיקה' ? 'למחוק את השיתוף?' : 'להסתיר את השיתוף מכולם?', async () => {
-      if (d.textContent === 'מחיקה') await guard(sb.from('posts').delete().eq('id', id)); else await guard(sb.rpc('moderate_post', { p_id: id, p_hidden: true })); a.remove(); });
+      if (d.textContent === 'מחיקה') await guard(sb.from('posts').delete().eq('id', id)); else await guard(sb.rpc('moderate_post', { p_id: id, p_hidden: true })); a.remove(); if (current === 'home') loadConvo(); });
     const r = $('[data-report]', a); if (r) r.onclick = () => confirmSheet('לדווח על השיתוף למנחה?', async () => { await guard(sb.from('reports').insert({ post_id: id, user_id: S.session.user.id })); toast('תודה. המנחה תבדוק'); });
   });
 }

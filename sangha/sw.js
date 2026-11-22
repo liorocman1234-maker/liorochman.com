@@ -1,6 +1,6 @@
 ﻿// App-shell cache: the app opens offline; data needs a connection.
-const CACHE = 'sangha-v6';
-const SHELL = ['./', './index.html', './styles.css?v=6', './app.js?v=6', './config.js?v=6',
+const CACHE = 'sangha-v7';
+const SHELL = ['./', './index.html', './styles.css?v=7', './app.js?v=7', './config.js?v=7',
   './manifest.webmanifest', './icons/icon-192.png', './icons/apple-touch-icon.png', './icons/hero-v3.jpg'];
 
 self.addEventListener('install', e => {

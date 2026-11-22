@@ -187,3 +187,28 @@ article[data-reading] h3{overflow-wrap:anywhere}
 .bf-day:disabled::after{content:"✓";position:absolute;top:2px;inset-inline-end:6px;font-size:11px}
 .bf-foot{position:sticky;bottom:calc(-24px - env(safe-area-inset-bottom,0px));background:var(--surface);padding:10px 0 calc(14px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px}
 #bf-save:disabled{opacity:.5}
+
+/* v7: conversation on home. No card fill, so it stays light. */
+.convo{border-block:1px solid var(--line);padding:6px 4px;display:flex;flex-direction:column}
+.cv-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.cv-head .btn.link{font-size:12px;padding:6px 0}
+.cv-row{display:flex;align-items:center;gap:10px;width:100%;min-width:0;min-height:44px;padding:4px 0;background:none;border:0;cursor:pointer;text-align:right}
+.cv-text{display:flex;flex-direction:column;line-height:1.35}
+.cv-meta{display:flex;gap:8px;min-width:0;font-size:12px;color:var(--muted)}
+.cv-meta b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.cv-meta>span{margin-inline-start:auto;flex:none}
+.cv-meta .cv-staff{color:var(--gold)}
+.cv-body{display:block;font-size:14px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cv-empty{color:var(--muted);font-size:13px}
+.cv-wait{margin:0;padding:10px 0;min-height:88px}
+/* short phones: tighten the hero so the conversation is on the first screen */
+@media (max-height:760px){
+  .home-hero{min-height:0;padding:10px 16px;gap:2px}
+  .home-hero .ring{width:112px;height:112px}
+  .home-hero .bignum{font-size:36px}
+}
+@media (max-height:590px){
+  .home-hero .ring{width:64px;height:64px}
+  .home-hero .bignum{font-size:30px}
+  .home-hero+#practice{padding:12px;gap:6px}
+}
