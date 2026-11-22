@@ -1032,6 +1032,129 @@ VIEWS.me = async function () {
   $('#me-out').onclick = signOut;
 };
 
+// ---------- staff: edit and delete recordings and events ----------
+const MAX_AUDIO = 50 * 1024 * 1024;
+function audioProblem(f, required) {
+  if (!f) return required ? 'לא נבחר קובץ. בחרו קובץ אודיו ואז העלאה' : '';
+  if (!f.size) return 'הקובץ ריק. בחרו קובץ אחר';
+  return f.size > MAX_AUDIO ? 'הקובץ מעל 50MB. צריך לכווץ אותו לפני ההעלאה' : '';
+}
+const isStored = p => !!p && !/^https?:/.test(p);
+async function uploadAudio(f, date) {
+  const ext = ((f.name.match(/\.([a-z0-9]{1,5})$/i) || [])[1] || 'mp3').toLowerCase(), path = `${date}-${Date.now()}.${ext}`;
+  const { error } = await sb.storage.from('audio').upload(path, f, { contentType: f.type || 'audio/mpeg' });
+  if (error) throw error;
+  return path;
+}
+// A failed response can still mean a saved row, so remove the upload only when no row points to it.
+async function dropUnusedAudio(path) {
+  try {
+    const { data, error } = await sb.from('recordings').select('id').eq('audio_path', path);
+    if (!error && !data.length) await sb.storage.from('audio').remove([path]);
+  } catch (e) { console.error(e); }
+}
+// RLS answers "0 rows" without an error, so success requires a returned row.
+async function changeOne(query) {
+  const rows = await guard(query.select('id'));
+  if (!rows || !rows.length) { toast('לא נשמר. רעננו את המסך ונסו שוב'); throw new Error('no row changed'); }
+}
+function stopIfPlaying(id) {
+  if (!S.playing || S.playing.id !== id) return;
+  S.playing = null; audio.pause(); audio.removeAttribute('src'); paintPlayer();
+}
+const manageRow = (id, title, sub) => `<div class="card soft" data-item="${esc(id)}"><b dir="auto">${esc(title)}</b><span class="small">${sub}</span>
+  <div class="row"><button class="btn link" data-edit>עריכה</button><span class="grow"></span><button class="btn link" data-delete>מחיקה</button></div></div>`;
+function bindManage(el, rows, edit, del) {
+  $$('[data-item]', el).forEach(c => { const x = rows.find(r => String(r.id) === c.dataset.item);
+    $('[data-edit]', c).onclick = () => edit(x); $('[data-delete]', c).onclick = () => del(x); });
+}
+async function recordingList() {
+  const el = $('#r-list'); if (!el) return;
+  const { data, error } = await sb.from('recordings').select('*').order('recorded_on', { ascending: false }).order('created_at', { ascending: false });
+  if (!el.isConnected) return;
+  if (error) { el.innerHTML = '<p class="small">לא הצלחנו לטעון את ההקלטות.</p>'; return; }
+  el.innerHTML = data.length ? '<h3>הקלטות קיימות</h3>' + data.map(r => manageRow(r.id, r.title,
+    `${r.recorded_on ? heDate(r.recorded_on) : ''}${r.audio_path ? '' : ' · <b>חסר קובץ</b>'}`)).join('') : '';
+  bindManage(el, data, recordingSheet, deleteRecording);
+}
+function recordingSheet(r) {
+  openSheet(`<h2>עריכת הקלטה</h2>
+    <label class="field">כותרת<input type="text" id="er-title" value="${esc(r.title)}"></label>
+    <div class="row"><label class="field grow">נושא<input type="text" id="er-topic" value="${esc(r.topic)}"></label><label class="field" style="width:110px">דקות<input type="number" id="er-dur" value="${esc(r.duration_min)}"></label></div>
+    <label class="field">מנחה<input type="text" id="er-guide" value="${esc(r.guide)}"></label>
+    <label class="field">תאריך<input type="date" id="er-date" value="${esc(r.recorded_on)}"></label>
+    <label class="field">מה תרגלנו (2-3 שורות)<textarea id="er-sum">${esc(r.summary)}</textarea></label>
+    <label class="field">${r.audio_path ? 'החלפת הקובץ (רשות)' : 'קובץ אודיו (חסר)'}<input type="file" id="er-file" accept="audio/*"></label>
+    <button class="btn block" id="er-save">שמירה</button>`, () => {
+    $('#er-save').onclick = async () => {
+      const title = $('#er-title').value.trim(), f = $('#er-file').files[0], date = $('#er-date').value;
+      if (!title) return toast('צריך כותרת');
+      if (!date) return toast('צריך תאריך');
+      const bad = audioProblem(f, !r.audio_path); if (bad) return toast(bad);
+      const row = { title, topic: $('#er-topic').value.trim() || 'כללי', guide: $('#er-guide').value.trim() || 'עדי', duration_min: +$('#er-dur').value || null, recorded_on: date, summary: $('#er-sum').value.trim() };
+      const btn = $('#er-save'); btn.disabled = true; btn.textContent = 'שומר…';
+      let path = null;
+      try {
+        if (f) { path = await uploadAudio(f, date); row.audio_path = path; }
+        await changeOne(sb.from('recordings').update(row).eq('id', r.id));
+      } catch (e) {
+        console.error(e); btn.disabled = false; btn.textContent = 'שמירה'; toast('השמירה לא הצליחה. נסו שוב');
+        if (path) await dropUnusedAudio(path);
+        return;
+      }
+      closeSheet(); toast('ההקלטה עודכנה'); S.recordings = [];
+      if (path) { stopIfPlaying(r.id); if (isStored(r.audio_path)) await dropUnusedAudio(r.audio_path); }
+      recordingList();
+    };
+  });
+}
+function deleteRecording(r) {
+  confirmSheet(`למחוק את "${r.title}"? אי אפשר לשחזר`, async () => {
+    try {
+      // file first: if this fails the row stays and the delete can simply be repeated
+      if (isStored(r.audio_path)) await guard(sb.storage.from('audio').remove([r.audio_path]), 'המחיקה לא הצליחה. נסו שוב');
+      await changeOne(sb.from('recordings').delete().eq('id', r.id));
+      stopIfPlaying(r.id); S.recordings = []; toast('ההקלטה נמחקה'); recordingList();
+    } catch (e) { console.error(e); }
+  });
+}
+const eventUrl = v => { const u = v.trim(); return !u ? null : /^https?:\/\//i.test(u) ? u : 'https://' + u; };
+const isoToIlLocal = iso => { const p = ilParts(new Date(iso)); return `${p.date}T${String(p.h).padStart(2, '0')}:${String(p.m).padStart(2, '0')}`; };
+async function eventList() {
+  const el = $('#e-list'); if (!el) return;
+  const { data, error } = await sb.from('events').select('*').order('starts_at', { ascending: false });
+  if (!el.isConnected) return;
+  if (error) { el.innerHTML = '<p class="small">לא הצלחנו לטעון את האירועים.</p>'; return; }
+  el.innerHTML = data.length ? '<h3>אירועים קיימים</h3>' + data.map(e => { const [d, t] = isoToIlLocal(e.starts_at).split('T');
+    return manageRow(e.id, e.title, `${heDate(d)} · ${t}`); }).join('') : '';
+  bindManage(el, data, eventSheet, deleteEvent);
+}
+function eventSheet(e) {
+  openSheet(`<h2>עריכת אירוע</h2>
+    <label class="field">שם<input type="text" id="ee-t" value="${esc(e.title)}"></label>
+    <label class="field">מתי<input type="datetime-local" id="ee-d" value="${isoToIlLocal(e.starts_at)}"></label>
+    <label class="field">משך בדקות<input type="number" id="ee-m" value="${esc(e.duration_min)}"></label>
+    <label class="field">קישור (זום / הרשמה)<input type="url" id="ee-u" dir="ltr" value="${esc(e.url)}"></label>
+    <label class="field">תיאור<textarea id="ee-x">${esc(e.description)}</textarea></label>
+    <p class="small">שינוי לא שולח התראה. אם המועד השתנה, כדאי לפרסם הודעה.</p>
+    <button class="btn block" id="ee-save">שמירה</button>`, () => {
+    $('#ee-save').onclick = async () => {
+      const title = $('#ee-t').value.trim(), d = $('#ee-d').value; if (!title || !d) return toast('צריך שם ותאריך');
+      const btn = $('#ee-save'); btn.disabled = true;
+      try {
+        await changeOne(sb.from('events').update({ title, starts_at: ilLocalToIso(d), duration_min: +$('#ee-m').value || 60, url: eventUrl($('#ee-u').value), description: $('#ee-x').value.trim() }).eq('id', e.id));
+        closeSheet(); toast('האירוע עודכן'); eventList();
+      } catch (err) { console.error(err); btn.disabled = false; }
+    };
+  });
+}
+function deleteEvent(e) {
+  confirmSheet(`למחוק את "${e.title}"? גם אישורי ההגעה יימחקו`, async () => {
+    try { await changeOne(sb.from('events').delete().eq('id', e.id)); toast('האירוע נמחק. כדאי לעדכן בהודעה'); eventList(); }
+    catch (err) { console.error(err); }
+  });
+}
+
 // ---------- ADMIN (facilitator) ----------
 VIEWS.admin = async function () {
   view.innerHTML = `<div class="row"><button class="btn link" data-go="home">→ חזרה</button></div><h1>ניהול</h1>
@@ -1051,19 +1174,26 @@ async function adminTab(t) {
       <label class="field">מה תרגלנו (2-3 שורות)<textarea id="r-sum"></textarea></label>
       <label class="field">קובץ אודיו (mp3 / m4a, עד 50MB)<input type="file" id="r-file" accept="audio/*"></label>
       <div class="progress" id="r-prog" hidden><i></i></div>
-      <button class="btn block" id="r-save">העלאה</button></div>`;
+      <button class="btn block" id="r-save">העלאה</button></div><div class="stack" id="r-list"></div>`;
     $('#r-save').onclick = async () => {
-      const title = $('#r-title').value.trim(); if (!title) return toast('צריך כותרת'); const f = $('#r-file').files[0];
-      if (f && f.size > 50 * 1024 * 1024) return toast('הקובץ מעל 50MB. צריך לכווץ אותו לפני ההעלאה');
+      const title = $('#r-title').value.trim(); if (!title) return toast('צריך כותרת');
+      const f = $('#r-file').files[0], bad = audioProblem(f, true); if (bad) return toast(bad);
+      const date = $('#r-date').value; if (!date) return toast('צריך תאריך');
       const btn = $('#r-save'); btn.disabled = true; let audio_path = null;
       try {
-        if (f) { $('#r-prog').hidden = false; $('#r-prog i').style.width = '30%'; const ext = (f.name.split('.').pop() || 'mp3').toLowerCase();
-          audio_path = `${$('#r-date').value}-${Date.now()}.${ext}`;
-          const { error } = await sb.storage.from('audio').upload(audio_path, f, { contentType: f.type || 'audio/mpeg' }); if (error) throw error; $('#r-prog i').style.width = '100%'; }
-        await guard(sb.from('recordings').insert({ title, topic: $('#r-topic').value.trim() || 'כללי', guide: $('#r-guide').value.trim() || 'עדי', duration_min: +$('#r-dur').value || null, recorded_on: $('#r-date').value, summary: $('#r-sum').value.trim(), audio_path }));
-        toast('ההקלטה עלתה'); S.recordings = []; adminTab('rec');
-      } catch (e) { console.error(e); btn.disabled = false; toast('ההעלאה לא הצליחה' + (f && f.size > 50e6 ? ' (קובץ מעל 50MB)' : '')); }
+        $('#r-prog').hidden = false; $('#r-prog i').style.width = '30%';
+        const row = { title, topic: $('#r-topic').value.trim() || 'כללי', guide: $('#r-guide').value.trim() || 'עדי', duration_min: +$('#r-dur').value || null, recorded_on: date, summary: $('#r-sum').value.trim() };
+        audio_path = await uploadAudio(f, date);
+        await guard(sb.from('recordings').insert({ ...row, audio_path }));
+        toast('ההקלטה עלתה'); S.recordings = [];
+        if (btn.isConnected) adminTab('rec');
+      } catch (e) {
+        console.error(e); btn.disabled = false; toast('ההעלאה לא הצליחה. נסו שוב');
+        const bar = $('#r-prog'); if (bar) bar.hidden = true;
+        if (audio_path) await dropUnusedAudio(audio_path);
+      }
     };
+    recordingList();
   } else if (t === 'post') {
     b.innerHTML = `<div class="card"><h3>הודעה מוצמדת לסנגהה</h3><textarea id="an"></textarea><button class="btn block" id="an-s">פרסום והצמדה</button></div><div id="pins"></div>`;
     $('#an-s').onclick = async () => { const body = $('#an').value.trim(); if (!body) return;
@@ -1078,10 +1208,15 @@ async function adminTab(t) {
     b.innerHTML = `<div class="card"><h3>אירוע חדש</h3><label class="field">שם<input type="text" id="e-t"></label>
       <label class="field">מתי<input type="datetime-local" id="e-d"></label><label class="field">משך בדקות<input type="number" id="e-m" value="90"></label>
       <label class="field">קישור (זום / הרשמה)<input type="url" id="e-u" dir="ltr"></label><label class="field">תיאור<textarea id="e-x"></textarea></label>
-      <button class="btn block" id="e-s">שמירה</button></div>`;
-    $('#e-s').onclick = async () => { const d = $('#e-d').value; if (!$('#e-t').value || !d) return toast('צריך שם ותאריך');
-      const iso = ilLocalToIso(d);
-      await guard(sb.from('events').insert({ title: $('#e-t').value.trim(), starts_at: iso, duration_min: +$('#e-m').value || 60, url: $('#e-u').value.trim() || null, description: $('#e-x').value.trim() })); toast('האירוע נוסף'); adminTab('ev'); };
+      <button class="btn block" id="e-s">שמירה</button></div><div class="stack" id="e-list"></div>`;
+    $('#e-s').onclick = async () => { const d = $('#e-d').value, title = $('#e-t').value.trim(); if (!title || !d) return toast('צריך שם ותאריך');
+      const btn = $('#e-s'); btn.disabled = true;
+      try {
+        await guard(sb.from('events').insert({ title, starts_at: ilLocalToIso(d), duration_min: +$('#e-m').value || 60, url: eventUrl($('#e-u').value), description: $('#e-x').value.trim() }));
+        toast('האירוע נוסף'); if (btn.isConnected) adminTab('ev');
+      } catch (e) { console.error(e); btn.disabled = false; }
+    };
+    eventList();
   } else if (t === 'q') {
     const data = await guard(sb.rpc('staff_questions'));
     b.innerHTML = (data || []).length ? data.map(q => `<div class="card" data-q="${q.id}"><p>${esc(q.body)}</p><span class="small">${q.anonymous ? 'בעילום שם' : esc(q.author)} · ${ago(q.created_at)}</span>
